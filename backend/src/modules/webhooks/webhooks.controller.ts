@@ -15,9 +15,9 @@ export class WebhooksController {
     @Param('provider') provider: string,
     @Headers() headers: Record<string, any>,
     @Body() body: any,
-    @Req() req: Request & { rawBody?: string },
+    @Req() req: Request & { rawBody?: Buffer },
   ) {
-    const raw = req.rawBody ?? JSON.stringify(body);
+    const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(body);
     if (!this.svc.verify(provider, headers, raw)) throw new BadRequestException('Invalid webhook signature');
 
     const events = this.svc.parse(body);

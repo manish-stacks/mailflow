@@ -25,7 +25,7 @@ export class AuthService {
     private config: ConfigService,
     private dataSource: DataSource,
     private email: EmailService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto, ctx: { ip?: string; userAgent?: string } = {}) {
     const exists = await this.users.findOne({ where: { email: dto.email.toLowerCase() } });
@@ -55,6 +55,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, ctx: { ip?: string; userAgent?: string } = {}) {
+    // console.log(await bcrypt.hash("123456", 12));
     const user = await this.users
       .createQueryBuilder('u').addSelect('u.passwordHash')
       .where('u.email = :email', { email: dto.email.toLowerCase() }).getOne();

@@ -239,8 +239,8 @@ let CampaignsService = class CampaignsService {
             ? await this.sendersSvc.assertSendable(workspaceId, c.senderIdentityId)
             : null;
         const sample = {
-            id: 'test', email: recipients[0], firstName: 'Alex', lastName: 'Sharma',
-            customAttributes: { company: 'CodeWins', city: 'Delhi' },
+            id: 'test', email: recipients[0], firstName: 'FirstName', lastName: 'LastName',
+            customAttributes: { company: 'Workspace ', city: 'Delhi' },
         };
         const html = (0, renderer_1.renderMergeTags)(c.htmlContent, sample);
         const subject = `[TEST] ${(0, renderer_1.renderMergeTags)(c.subject || c.name, sample)}`;

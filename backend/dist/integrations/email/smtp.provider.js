@@ -77,6 +77,7 @@ let SmtpProvider = SmtpProvider_1 = class SmtpProvider {
                 html: input.html,
                 text: input.text,
                 headers: input.headers,
+                dkim: input.dkim,
             });
             return { messageId: info.messageId, accepted: (info.accepted?.length ?? 0) > 0 };
         }

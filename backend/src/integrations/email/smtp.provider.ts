@@ -34,6 +34,7 @@ export class SmtpProvider implements EmailProvider {
         html: input.html,
         text: input.text,
         headers: input.headers,
+        dkim: input.dkim,
       });
       return { messageId: info.messageId, accepted: (info.accepted?.length ?? 0) > 0 };
     } catch (err: any) {

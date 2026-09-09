@@ -68,6 +68,8 @@ let SenderDomain = class SenderDomain extends base_entity_1.BaseEntity {
     verificationRecords;
     lastCheckedAt;
     verifiedAt;
+    dkimSelector;
+    dkimPrivateKeyEnc;
 };
 exports.SenderDomain = SenderDomain;
 __decorate([
@@ -99,6 +101,14 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'verified_at', type: 'datetime', nullable: true }),
     __metadata("design:type", Date)
 ], SenderDomain.prototype, "verifiedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'dkim_selector', default: 'mailflow' }),
+    __metadata("design:type", String)
+], SenderDomain.prototype, "dkimSelector", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'dkim_private_key_enc', type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], SenderDomain.prototype, "dkimPrivateKeyEnc", void 0);
 exports.SenderDomain = SenderDomain = __decorate([
     (0, typeorm_1.Entity)('sender_domains'),
     (0, typeorm_1.Unique)('uq_domain_ws', ['workspaceId', 'domain'])

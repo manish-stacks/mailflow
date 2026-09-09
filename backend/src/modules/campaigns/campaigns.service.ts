@@ -232,8 +232,8 @@ export class CampaignsService {
       : null;
 
     const sample = {
-      id: 'test', email: recipients[0], firstName: 'Alex', lastName: 'Sharma',
-      customAttributes: { company: 'CodeWins', city: 'Delhi' },
+      id: 'test', email: recipients[0], firstName: 'FirstName', lastName: 'LastName',
+      customAttributes: { company: 'Workspace ', city: 'Delhi' },
     };
     const html = renderMergeTags(c.htmlContent, sample);
     const subject = `[TEST] ${renderMergeTags(c.subject || c.name, sample)}`;

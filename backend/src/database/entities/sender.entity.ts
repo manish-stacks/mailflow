@@ -25,4 +25,6 @@ export class SenderDomain extends BaseEntity {
   @Column({ name: 'verification_records', type: 'json', nullable: true }) verificationRecords: any[];
   @Column({ name: 'last_checked_at', type: 'datetime', nullable: true }) lastCheckedAt: Date;
   @Column({ name: 'verified_at', type: 'datetime', nullable: true }) verifiedAt: Date;
+  @Column({ name: 'dkim_selector', default: 'mailflow' }) dkimSelector: string;
+  @Column({ name: 'dkim_private_key_enc', type: 'text', nullable: true }) dkimPrivateKeyEnc: string;
 }

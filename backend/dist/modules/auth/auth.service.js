@@ -100,6 +100,7 @@ let AuthService = AuthService_1 = class AuthService {
         return this.issueSession(user, ctx);
     }
     async login(dto, ctx = {}) {
+        // console.log(await bcrypt.hash("123456", 12));
         const user = await this.users
             .createQueryBuilder('u').addSelect('u.passwordHash')
             .where('u.email = :email', { email: dto.email.toLowerCase() }).getOne();

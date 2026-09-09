@@ -44,12 +44,12 @@ exports.default = () => ({
             password: process.env.SMTP_PASSWORD,
         },
     },
-    s3: {
-        endpoint: process.env.S3_ENDPOINT,
-        region: process.env.S3_REGION || 'auto',
-        bucket: process.env.S3_BUCKET,
-        accessKey: process.env.S3_ACCESS_KEY,
-        secretKey: process.env.S3_SECRET_KEY,
-        publicUrl: process.env.S3_PUBLIC_URL,
+    r2: {
+        endpoint: process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined,
+        region: 'auto',
+        bucket: process.env.R2_BUCKET_NAME,
+        accessKey: process.env.R2_ACCESS_KEY_ID,
+        secretKey: process.env.R2_SECRET_ACCESS_KEY,
+        publicUrl: process.env.R2_PUBLIC_URL,
     },
 });

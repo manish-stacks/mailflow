@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
-import { Code2, Monitor, Smartphone, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Code2, ImagePlus, LayoutTemplate, Loader2, Monitor, Smartphone, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { toast } from '@/components/ui/feedback';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/primitives';
 
@@ -9,11 +11,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/primit
  * HTML-first editor with device previews. design_json is preserved on the
  * record so a future drag-and-drop builder can take over without a migration.
  */
+const BLOCKS: Record<string, string> = {
+  Heading: `<h1 style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:24px;color:#111">Your heading here</h1>`,
+  Paragraph: `<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333">Write your message here. Hi {{first_name | default: "there"}}, ...</p>`,
+  Button: `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr><td style="border-radius:6px;background:#4f46e5"><a href="https://example.com" style="display:inline-block;padding:12px 24px;font-family:Arial,sans-serif;font-size:14px;color:#fff;text-decoration:none;border-radius:6px">Click here</a></td></tr></table>`,
+  Divider: `<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />`,
+};
+
 export function EmailEditor({
   value, onChange, onAiClick,
 }: { value: string; onChange: (html: string) => void; onAiClick?: () => void }) {
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [fullscreen, setFullscreen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  /** Inserts a snippet at the current cursor position (or appends it). */
+  function insertAtCursor(snippet: string) {
+    const el = textareaRef.current;
+    if (!el) { onChange(value + snippet); return; }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + snippet + value.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = start + snippet.length; });
+  }
+
+  async function handleImageFile(file: File) {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const uploaded = await api.upload<{ url: string }>('/files/upload?purpose=email-image', form);
+      insertAtCursor(`<img src="${uploaded.url}" alt="" width="600" style="max-width:100%;display:block" />`);
+    } catch (e: any) {
+      toast.error('Image upload failed', e.message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className={cn('rounded-xl border border-border bg-card', fullscreen && 'fixed inset-4 z-50 overflow-hidden shadow-2xl')}>
@@ -23,6 +60,25 @@ export function EmailEditor({
             <TabsTrigger value="code"><Code2 className="mr-1.5 h-3.5 w-3.5" /> HTML</TabsTrigger>
             <TabsTrigger value="preview"><Monitor className="mr-1.5 h-3.5 w-3.5" /> Preview</TabsTrigger>
           </TabsList>
+
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="outline" disabled={uploading} onClick={() => fileInput.current?.click()}>
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />} Image
+            </Button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+              hidden
+              onChange={(e) => e.target.files?.[0] && handleImageFile(e.target.files[0])}
+            />
+            {Object.keys(BLOCKS).map((label) => (
+              <Button key={label} size="sm" variant="ghost" onClick={() => insertAtCursor(BLOCKS[label])}>
+                <LayoutTemplate className="mr-1 h-3.5 w-3.5" /> {label}
+              </Button>
+            ))}
+          </div>
+
           <div className="ml-auto flex items-center gap-2">
             {onAiClick && <Button size="sm" variant="outline" onClick={onAiClick}><Sparkles className="h-3.5 w-3.5" /> AI Assistant</Button>}
             <Button size="sm" variant="ghost" onClick={() => setFullscreen(!fullscreen)}>{fullscreen ? 'Exit' : 'Fullscreen'}</Button>
@@ -31,6 +87,7 @@ export function EmailEditor({
 
         <TabsContent value="code" className="mt-0">
           <textarea
+            ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             spellCheck={false}

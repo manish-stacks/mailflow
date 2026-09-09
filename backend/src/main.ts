@@ -3,13 +3,17 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
-import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
+  // rawBody: true lets Nest capture the raw request buffer (req.rawBody) for every
+  // request WITHOUT us manually calling express.json() ourselves. Manually scoping our
+  // own express.json() (even to just /api/webhooks) makes Nest think body-parsing is
+  // already handled by the app and it silently skips registering its own global JSON
+  // parser — which broke req.body on every other route (e.g. /api/auth/register).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api', {
@@ -19,11 +23,6 @@ async function bootstrap() {
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cookieParser());
-
-  // Raw body retained for webhook signature verification.
-  app.use('/api/webhooks', express.json({
-    verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); },
-  }));
 
   app.enableCors({
     origin: config.get('corsOrigins'),

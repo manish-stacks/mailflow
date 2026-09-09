@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BillingService } from '@/modules/billing/billing.service';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import {
   Campaign, CampaignEvent, CampaignRecipient, Contact, SenderIdentity, TrackedLink,
 } from '@/database/entities';
@@ -13,6 +13,7 @@ import {
 } from '@/integrations/email/renderer';
 import { QueueService } from '@/queues/queue.service';
 import { QUEUES } from '@/queues/queue.constants';
+import { SuppressionService } from '@/modules/suppression/suppression.service';
 import { CampaignsService } from './campaigns.service';
 
 /**
@@ -36,6 +37,7 @@ export class CampaignDispatchService {
     private config: ConfigService,
     private dataSource: DataSource,
     private billing: BillingService,
+    private suppression: SuppressionService,
   ) {}
 
   /** Queue: campaign-preparation */
@@ -70,7 +72,7 @@ export class CampaignDispatchService {
         .orIgnore().execute();
 
       const saved = await this.recipients.find({
-        where: { campaignId, contactId: batch.map((b) => b.id) as any },
+        where: { campaignId, contactId: In(batch.map((b) => b.id)) },
         select: ['id'],
       }).catch(() => []);
 
@@ -138,10 +140,17 @@ export class CampaignDispatchService {
     });
 
     if (res.accepted) {
-      await this.recipients.update(recipientId, { status: 'sent', sentAt: new Date(), messageId: res.messageId });
+      // Raw SMTP relays (Hostinger, Gmail, custom servers) have no delivery webhook —
+      // the sending server's "accepted" response is the only delivery signal we'll
+      // ever get, so treat it as delivered instead of leaving recipients stuck on
+      // "sent" forever. ESP providers with real webhooks (SES/etc.) will override
+      // this to 'bounced'/'complained' later via webhooks.service.ts if that fires.
+      await this.recipients.update(recipientId, { status: 'delivered', sentAt: new Date(), deliveredAt: new Date(), messageId: res.messageId });
       await this.campaigns.increment({ id: campaignId }, 'sentCount', 1);
+      await this.campaigns.increment({ id: campaignId }, 'deliveredCount', 1);
       await this.billing.increment(workspaceId, 'emailsSent', 1);
       await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'sent', { messageId: res.messageId });
+      await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'delivered', { messageId: res.messageId });
       await this.maybeComplete(campaignId);
       return true;
     }
@@ -151,8 +160,25 @@ export class CampaignDispatchService {
     await this.recipients.update(recipientId, { status: 'failed', errorMessage: res.error?.slice(0, 480) });
     await this.campaigns.increment({ id: campaignId }, 'failedCount', 1);
     await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'failed', { error: res.error });
+
+    // Permanent failure = the mailbox/domain doesn't exist or hard-rejected us.
+    // Suppress it so future campaigns skip this address — repeated bounces to a
+    // dead address are what get an SMTP account rate-limited or blocked.
+    if (this.isHardBounce(res.error)) {
+      await this.suppression.add(workspaceId, [contact.email], 'bounced').catch(() => null);
+      await this.campaigns.increment({ id: campaignId }, 'bouncedCount', 1);
+      await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'bounced', { error: res.error });
+    }
+
     await this.maybeComplete(campaignId);
     return true;
+  }
+
+  /** True for permanent SMTP rejections (bad mailbox/domain) — false for temporary/greylisting errors. */
+  private isHardBounce(error?: string): boolean {
+    if (!error) return false;
+    const e = error.toLowerCase();
+    return /\b5\d\d\b/.test(e) || /user unknown|does not exist|no such user|mailbox unavailable|invalid recipient|recipient rejected/.test(e);
   }
 
   private contactVars(contact: Contact) {

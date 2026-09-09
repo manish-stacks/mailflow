@@ -74,7 +74,7 @@ let TemplatesService = class TemplatesService {
         const sender = senderId
             ? await this.senders.findOne({ where: { id: senderId, workspaceId } })
             : await this.senders.findOne({ where: { workspaceId, status: 'verified' } });
-        const sample = { id: 'preview', email: to, firstName: 'Alex', lastName: 'Sharma', customAttributes: { company: 'CodeWins', city: 'Delhi' } };
+        const sample = { id: 'preview', email: to, firstName: 'FirstName', lastName: 'LastName', customAttributes: { company: 'Workspace ', city: 'City' } };
         const html = (0, renderer_1.renderMergeTags)(t.htmlContent || '', sample);
         const subject = `[TEST] ${(0, renderer_1.renderMergeTags)(t.subject || t.name, sample)}`;
         const res = await this.email.send({

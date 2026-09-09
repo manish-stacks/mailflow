@@ -9,6 +9,8 @@ export interface SendEmailInput {
   html: string;
   text?: string;
   headers?: Record<string, string>;
+  /** Set by EmailService when the sending domain has a verified DKIM key. */
+  dkim?: { domainName: string; keySelector: string; privateKey: string };
 }
 
 export interface SendEmailResult {

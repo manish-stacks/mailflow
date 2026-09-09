@@ -35,7 +35,6 @@ __decorate([
 ], CreateSenderDto.prototype, "fromEmail", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], CreateSenderDto.prototype, "replyToEmail", void 0);
 class UpdateSenderDto {

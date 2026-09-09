@@ -8,12 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var EmailService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
 const mail_connection_service_1 = require("../../modules/mail-connection/mail-connection.service");
+const entities_1 = require("../../database/entities");
+const crypto_1 = require("../../common/crypto");
 const smtp_provider_1 = require("./smtp.provider");
 /**
  * Facade over the configured provider. Adding a provider later means registering it
@@ -22,23 +29,39 @@ const smtp_provider_1 = require("./smtp.provider");
 let EmailService = EmailService_1 = class EmailService {
     config;
     connections;
+    domains;
     providers;
     logger = new common_1.Logger(EmailService_1.name);
-    constructor(config, smtp, connections) {
+    constructor(config, smtp, connections, domains) {
         this.config = config;
         this.connections = connections;
+        this.domains = domains;
         this.providers = { smtp };
     }
     get provider() {
         const name = this.config.get('email.provider') || 'smtp';
         return this.providers[name] || this.providers.smtp;
     }
+    /** Attaches a DKIM signature from the workspace's verified sending domain, if any. */
+    async attachDkim(input) {
+        if (!input.workspaceId || !input.fromEmail?.includes('@'))
+            return input;
+        const domain = input.fromEmail.split('@')[1].toLowerCase();
+        const d = await this.domains.findOne({ where: { workspaceId: input.workspaceId, domain, verificationStatus: 'verified' } });
+        if (!d?.dkimPrivateKeyEnc)
+            return input;
+        const privateKey = (0, crypto_1.decryptSecret)(d.dkimPrivateKeyEnc, this.config.get('encryptionKey'));
+        if (!privateKey)
+            return input;
+        return { ...input, dkim: { domainName: domain, keySelector: d.dkimSelector, privateKey } };
+    }
     /**
      * Routing rule: a workspace with a working mail connection sends through its own
      * relay; everyone else uses the platform provider. Reputation therefore belongs to
      * whoever owns the relay, which is the point of letting clients connect their own.
      */
-    async send(input) {
+    async send(rawInput) {
+        const input = await this.attachDkim(rawInput);
         if (input.workspaceId) {
             const owned = await this.connections.transporterFor(input.workspaceId);
             if (owned) {
@@ -51,6 +74,7 @@ let EmailService = EmailService_1 = class EmailService {
                         html: input.html,
                         text: input.text,
                         headers: input.headers,
+                        dkim: input.dkim,
                     });
                     return { messageId: info.messageId, accepted: (info.accepted?.length ?? 0) > 0 };
                 }
@@ -78,7 +102,9 @@ let EmailService = EmailService_1 = class EmailService {
 exports.EmailService = EmailService;
 exports.EmailService = EmailService = EmailService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, typeorm_1.InjectRepository)(entities_1.SenderDomain)),
     __metadata("design:paramtypes", [config_1.ConfigService,
         smtp_provider_1.SmtpProvider,
-        mail_connection_service_1.MailConnectionService])
+        mail_connection_service_1.MailConnectionService,
+        typeorm_2.Repository])
 ], EmailService);

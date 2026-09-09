@@ -100,6 +100,14 @@ export default function ImportContactsPage() {
               <p className="max-w-sm text-center text-sm text-muted-foreground">
                 The first row must contain column headers. Files up to 50 MB are supported.
               </p>
+              <a
+                href="/sample-contacts.csv"
+                download
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                Download sample CSV
+              </a>
             </button>
             <input
               ref={fileInput}

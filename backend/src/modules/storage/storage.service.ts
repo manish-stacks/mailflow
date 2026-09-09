@@ -9,29 +9,29 @@ import { randomUUID } from 'crypto';
 import { UploadedFile } from '@/database/entities';
 
 /**
- * S3-compatible storage with a local-disk fallback so the app runs before
- * credentials exist. Metadata always lands in MySQL.
+ * R2 (Cloudflare, S3-compatible) storage with a local-disk fallback so the app
+ * runs before credentials exist. Metadata always lands in MySQL.
  */
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
-  private s3: S3Client | null = null;
+  private r2: S3Client | null = null;
   private localDir = path.join(process.cwd(), '.storage');
 
   constructor(
     private config: ConfigService,
     @InjectRepository(UploadedFile) private files: Repository<UploadedFile>,
   ) {
-    const s3 = this.config.get('s3');
-    if (s3.accessKey && s3.secretKey && s3.bucket) {
-      this.s3 = new S3Client({
-        endpoint: s3.endpoint || undefined,
-        region: s3.region,
-        forcePathStyle: !!s3.endpoint,
-        credentials: { accessKeyId: s3.accessKey, secretAccessKey: s3.secretKey },
+    const r2 = this.config.get('r2');
+    if (r2.accessKey && r2.secretKey && r2.bucket && r2.endpoint) {
+      this.r2 = new S3Client({
+        endpoint: r2.endpoint,
+        region: r2.region,
+        forcePathStyle: false,
+        credentials: { accessKeyId: r2.accessKey, secretAccessKey: r2.secretKey },
       });
     } else {
-      this.logger.warn('S3 not configured — falling back to local disk storage');
+      this.logger.warn('R2 not configured — falling back to local disk storage');
     }
   }
 
@@ -39,15 +39,15 @@ export class StorageService {
     workspaceId: string; userId?: string; buffer: Buffer;
     fileName: string; mimeType: string; purpose?: string;
   }) {
-    const s3cfg = this.config.get('s3');
+    const r2cfg = this.config.get('r2');
     const key = `${params.workspaceId}/${params.purpose || 'image'}/${randomUUID()}-${params.fileName.replace(/[^\w.-]/g, '_')}`;
 
     let url: string;
-    if (this.s3) {
-      await this.s3.send(new PutObjectCommand({
-        Bucket: s3cfg.bucket, Key: key, Body: params.buffer, ContentType: params.mimeType,
+    if (this.r2) {
+      await this.r2.send(new PutObjectCommand({
+        Bucket: r2cfg.bucket, Key: key, Body: params.buffer, ContentType: params.mimeType,
       }));
-      url = s3cfg.publicUrl ? `${s3cfg.publicUrl}/${key}` : `${s3cfg.endpoint}/${s3cfg.bucket}/${key}`;
+      url = r2cfg.publicUrl ? `${r2cfg.publicUrl}/${key}` : `${r2cfg.endpoint}/${r2cfg.bucket}/${key}`;
     } else {
       const dest = path.join(this.localDir, key);
       await fs.mkdir(path.dirname(dest), { recursive: true });
@@ -68,9 +68,9 @@ export class StorageService {
   }
 
   async download(storageKey: string): Promise<Buffer> {
-    if (this.s3) {
-      const res = await this.s3.send(new GetObjectCommand({
-        Bucket: this.config.get('s3.bucket'), Key: storageKey,
+    if (this.r2) {
+      const res = await this.r2.send(new GetObjectCommand({
+        Bucket: this.config.get('r2.bucket'), Key: storageKey,
       }));
       const chunks: Buffer[] = [];
       for await (const chunk of res.Body as any) chunks.push(Buffer.from(chunk));

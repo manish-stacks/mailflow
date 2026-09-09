@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #f1f2ed;
+  color: #14181f;
+}
+
+::selection {
+  background-color: #d8bd7f;
+  color: #171b18;
+}
+
+:focus-visible {
+  outline: 2px solid #9a3a26;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* postmark badge */
+.postmark {
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+}
+
+/* wax-seal wordmark */
+.seal {
+  border-radius: 999px;
+  background: radial-gradient(circle at 32% 28%, #b8492f, #7a2c1b 72%);
+  box-shadow: inset 0 0 0 1px rgba(242, 240, 231, 0.18);
+}
+
+/* short rule used in place of an uppercase eyebrow label */
+.tick {
+  display: inline-block;
+  width: 22px;
+  height: 3px;
+  border-radius: 1px;
+  background-color: currentColor;
+}
+
+/* dashed flight-path connector */
+.route-line {
+  background-image: repeating-linear-gradient(
+    90deg,
+    currentColor 0,
+    currentColor 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  height: 1.5px;
+}
+
+.route-line-v {
+  background-image: repeating-linear-gradient(
+    180deg,
+    currentColor 0,
+    currentColor 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  width: 1.5px;
+}
+
+@keyframes travel {
+  0% {
+    left: 0%;
+  }
+  100% {
+    left: calc(100% - 8px);
+  }
+}
+
+.travel-dot {
+  animation: travel 2.4s ease-in-out 0.3s 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-dot {
+    animation: none;
+    left: calc(100% - 8px);
+  }
+}

@@ -89,7 +89,7 @@ let SendersService = class SendersService {
         return sender;
     }
     async sendVerification(sender) {
-        const url = `${this.config.get('trackingBaseUrl')}/senders/verify?token=${sender.verificationToken}`;
+        const url = `${this.config.get('trackingBaseUrl')}/api/senders/verify?token=${sender.verificationToken}`;
         await this.email.sendSystem(sender.fromEmail, 'Verify your sender address', `<p>Confirm <b>${sender.fromEmail}</b> as a MailFlow sender:</p><p><a href="${url}">${url}</a></p>`);
     }
 };

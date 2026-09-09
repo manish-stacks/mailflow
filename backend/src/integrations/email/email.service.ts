@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { MailConnectionService } from '@/modules/mail-connection/mail-connection.service';
+import { SenderDomain } from '@/database/entities';
+import { decryptSecret } from '@/common/crypto';
 import { EmailProvider, SendEmailInput, SendEmailResult } from './email-provider.interface';
 import { SmtpProvider } from './smtp.provider';
 
@@ -17,6 +21,7 @@ export class EmailService {
     private config: ConfigService,
     smtp: SmtpProvider,
     private connections: MailConnectionService,
+    @InjectRepository(SenderDomain) private domains: Repository<SenderDomain>,
   ) {
     this.providers = { smtp };
   }
@@ -26,12 +31,25 @@ export class EmailService {
     return this.providers[name] || this.providers.smtp;
   }
 
+  /** Attaches a DKIM signature from the workspace's verified sending domain, if any. */
+  private async attachDkim(input: SendEmailInput) {
+    if (!input.workspaceId || !input.fromEmail?.includes('@')) return input;
+    const domain = input.fromEmail.split('@')[1].toLowerCase();
+    const d = await this.domains.findOne({ where: { workspaceId: input.workspaceId, domain, verificationStatus: 'verified' } });
+    if (!d?.dkimPrivateKeyEnc) return input;
+    const privateKey = decryptSecret(d.dkimPrivateKeyEnc, this.config.get('encryptionKey'));
+    if (!privateKey) return input;
+    return { ...input, dkim: { domainName: domain, keySelector: d.dkimSelector, privateKey } };
+  }
+
   /**
    * Routing rule: a workspace with a working mail connection sends through its own
    * relay; everyone else uses the platform provider. Reputation therefore belongs to
    * whoever owns the relay, which is the point of letting clients connect their own.
    */
-  async send(input: SendEmailInput): Promise<SendEmailResult> {
+  async send(rawInput: SendEmailInput): Promise<SendEmailResult> {
+    const input = await this.attachDkim(rawInput);
+
     if (input.workspaceId) {
       const owned = await this.connections.transporterFor(input.workspaceId);
       if (owned) {
@@ -44,6 +62,7 @@ export class EmailService {
             html: input.html,
             text: input.text,
             headers: input.headers,
+            dkim: input.dkim,
           });
           return { messageId: info.messageId, accepted: (info.accepted?.length ?? 0) > 0 };
         } catch (err: any) {

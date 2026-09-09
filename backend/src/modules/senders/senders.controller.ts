@@ -8,7 +8,7 @@ import { SendersService } from './senders.service';
 class CreateSenderDto {
   @IsString() @MaxLength(150) fromName: string;
   @IsEmail() fromEmail: string;
-  @IsOptional() @IsEmail() replyToEmail?: string;
+  @IsOptional() replyToEmail?: string;
 }
 class UpdateSenderDto {
   @IsOptional() @IsString() @MaxLength(150) fromName?: string;

@@ -27,7 +27,7 @@ let WebhooksController = class WebhooksController {
     }
     /** Signature-checked, then handed to a queue so the provider gets a fast 200. */
     async receive(provider, headers, body, req) {
-        const raw = req.rawBody ?? JSON.stringify(body);
+        const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(body);
         if (!this.svc.verify(provider, headers, raw))
             throw new common_1.BadRequestException('Invalid webhook signature');
         const events = this.svc.parse(body);

@@ -36,12 +36,14 @@ export default function DomainsPage() {
   });
 
   const verify = useMutation({
-    mutationFn: (id: string) => api.post<SenderDomain>(`/domains/${id}/verify`),
+    mutationFn: (id: string) => api.post<SenderDomain & { details?: { spf: boolean; dkim: boolean } }>(`/domains/${id}/verify`),
     onSuccess: (d) => {
-      toast[d.verificationStatus === 'verified' ? 'success' : 'info'](
-        d.verificationStatus === 'verified' ? 'Domain verified' : 'Records not found yet',
-        d.verificationStatus === 'verified' ? undefined : 'DNS changes can take up to 48 hours to propagate.',
-      );
+      if (d.verificationStatus === 'verified') {
+        toast.success('Domain verified');
+      } else {
+        const missing = [!d.details?.spf && 'SPF', !d.details?.dkim && 'DKIM'].filter(Boolean).join(' and ');
+        toast.info('Not verified yet', missing ? `${missing} record${missing.includes('and') ? 's' : ''} not matching yet. Double-check the exact value was pasted, then try again.` : 'DNS changes can take up to 48 hours to propagate.');
+      }
       qc.invalidateQueries({ queryKey: ['domains'] });
     },
     onError: (e: any) => toast.error('Verification failed', e.message),

@@ -24,6 +24,7 @@ const email_service_1 = require("../../integrations/email/email.service");
 const renderer_1 = require("../../integrations/email/renderer");
 const queue_service_1 = require("../../queues/queue.service");
 const queue_constants_1 = require("../../queues/queue.constants");
+const suppression_service_1 = require("../suppression/suppression.service");
 const campaigns_service_1 = require("./campaigns.service");
 /**
  * The part of campaign sending that runs inside workers.
@@ -42,8 +43,9 @@ let CampaignDispatchService = CampaignDispatchService_1 = class CampaignDispatch
     config;
     dataSource;
     billing;
+    suppression;
     logger = new common_1.Logger(CampaignDispatchService_1.name);
-    constructor(campaigns, recipients, events, contacts, senders, links, campaignsSvc, email, queue, config, dataSource, billing) {
+    constructor(campaigns, recipients, events, contacts, senders, links, campaignsSvc, email, queue, config, dataSource, billing, suppression) {
         this.campaigns = campaigns;
         this.recipients = recipients;
         this.events = events;
@@ -56,6 +58,7 @@ let CampaignDispatchService = CampaignDispatchService_1 = class CampaignDispatch
         this.config = config;
         this.dataSource = dataSource;
         this.billing = billing;
+        this.suppression = suppression;
     }
     /** Queue: campaign-preparation */
     async prepare(campaignId, workspaceId) {
@@ -86,7 +89,7 @@ let CampaignDispatchService = CampaignDispatchService_1 = class CampaignDispatch
             })))
                 .orIgnore().execute();
             const saved = await this.recipients.find({
-                where: { campaignId, contactId: batch.map((b) => b.id) },
+                where: { campaignId, contactId: (0, typeorm_2.In)(batch.map((b) => b.id)) },
                 select: ['id'],
             }).catch(() => []);
             const rows = saved.length ? saved : await this.dataSource.query(`SELECT id FROM campaign_recipients WHERE campaign_id = ? AND status = 'pending' LIMIT ? OFFSET ?`, [campaignId, batchSize, offset]);
@@ -143,10 +146,17 @@ let CampaignDispatchService = CampaignDispatchService_1 = class CampaignDispatch
             },
         });
         if (res.accepted) {
-            await this.recipients.update(recipientId, { status: 'sent', sentAt: new Date(), messageId: res.messageId });
+            // Raw SMTP relays (Hostinger, Gmail, custom servers) have no delivery webhook —
+            // the sending server's "accepted" response is the only delivery signal we'll
+            // ever get, so treat it as delivered instead of leaving recipients stuck on
+            // "sent" forever. ESP providers with real webhooks (SES/etc.) will override
+            // this to 'bounced'/'complained' later via webhooks.service.ts if that fires.
+            await this.recipients.update(recipientId, { status: 'delivered', sentAt: new Date(), deliveredAt: new Date(), messageId: res.messageId });
             await this.campaigns.increment({ id: campaignId }, 'sentCount', 1);
+            await this.campaigns.increment({ id: campaignId }, 'deliveredCount', 1);
             await this.billing.increment(workspaceId, 'emailsSent', 1);
             await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'sent', { messageId: res.messageId });
+            await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'delivered', { messageId: res.messageId });
             await this.maybeComplete(campaignId);
             return true;
         }
@@ -155,8 +165,23 @@ let CampaignDispatchService = CampaignDispatchService_1 = class CampaignDispatch
         await this.recipients.update(recipientId, { status: 'failed', errorMessage: res.error?.slice(0, 480) });
         await this.campaigns.increment({ id: campaignId }, 'failedCount', 1);
         await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'failed', { error: res.error });
+        // Permanent failure = the mailbox/domain doesn't exist or hard-rejected us.
+        // Suppress it so future campaigns skip this address — repeated bounces to a
+        // dead address are what get an SMTP account rate-limited or blocked.
+        if (this.isHardBounce(res.error)) {
+            await this.suppression.add(workspaceId, [contact.email], 'bounced').catch(() => null);
+            await this.campaigns.increment({ id: campaignId }, 'bouncedCount', 1);
+            await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'bounced', { error: res.error });
+        }
         await this.maybeComplete(campaignId);
         return true;
+    }
+    /** True for permanent SMTP rejections (bad mailbox/domain) — false for temporary/greylisting errors. */
+    isHardBounce(error) {
+        if (!error)
+            return false;
+        const e = error.toLowerCase();
+        return /\b5\d\d\b/.test(e) || /user unknown|does not exist|no such user|mailbox unavailable|invalid recipient|recipient rejected/.test(e);
     }
     contactVars(contact) {
         return {
@@ -219,5 +244,6 @@ exports.CampaignDispatchService = CampaignDispatchService = CampaignDispatchServ
         queue_service_1.QueueService,
         config_1.ConfigService,
         typeorm_2.DataSource,
-        billing_service_1.BillingService])
+        billing_service_1.BillingService,
+        suppression_service_1.SuppressionService])
 ], CampaignDispatchService);

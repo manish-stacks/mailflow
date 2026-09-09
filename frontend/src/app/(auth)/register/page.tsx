@@ -49,10 +49,10 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit(onSubmit as any)} className="mt-8 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name" error={errors.firstName?.message}>
-            <Input placeholder="Alex" {...register('firstName')} />
+            <Input placeholder="First name" {...register('firstName')} />
           </Field>
           <Field label="Last name">
-            <Input placeholder="Sharma" {...register('lastName')} />
+            <Input placeholder="Last name" {...register('lastName')} />
           </Field>
         </div>
         <Field label="Work email" error={errors.email?.message}>
@@ -62,7 +62,7 @@ export default function RegisterPage() {
           <Input type="password" placeholder="••••••••" {...register('password')} />
         </Field>
         <Field label="Workspace name" hint="You can rename this later.">
-          <Input placeholder="CodeWins" {...register('workspaceName')} />
+          <Input placeholder="Workspace name" {...register('workspaceName')} />
         </Field>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
       </form>
