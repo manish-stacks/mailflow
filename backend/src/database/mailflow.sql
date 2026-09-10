@@ -751,7 +751,8 @@ CREATE TABLE `users` (
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
   `must_change_password` tinyint(1) NOT NULL DEFAULT 0,
-  `created_by` char(36) DEFAULT NULL
+  `created_by` char(36) DEFAULT NULL,
+  `admin_permissions` json DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --

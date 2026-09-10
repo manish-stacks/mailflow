@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query, UseGu
 import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { SuppressionService } from './suppression.service';
 
@@ -13,7 +13,7 @@ class AddSuppressionDto {
 class QuerySuppressionsDto extends PaginationDto { @IsOptional() @IsString() reason?: string; }
 
 @Controller('suppressions')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class SuppressionController {
   constructor(private svc: SuppressionService) {}
 

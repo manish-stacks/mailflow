@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { IsEmail, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { CurrentUser, Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { TemplatesService } from './templates.service';
 
@@ -22,7 +22,7 @@ class TestTemplateDto {
 class QueryTemplatesDto extends PaginationDto { @IsOptional() @IsString() category?: string; }
 
 @Controller('templates')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class TemplatesController {
   constructor(private svc: TemplatesService) {}
 

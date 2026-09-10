@@ -1,12 +1,12 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { BulkActionDto, CreateContactDto, QueryContactsDto, UpdateContactDto } from './dto';
 import { ContactsService } from './contacts.service';
 
 @Controller('contacts')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class ContactsController {
   constructor(private svc: ContactsService) {}
 

@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 import { CurrentUser, Public } from '@/common/decorators';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
-import { ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
+import { ChangePasswordDto, ForgotPasswordDto, LoginDto, RefreshDto, RegisterDto, ResetPasswordDto } from './dto';
 
 const COOKIE = 'mf_refresh';
 
@@ -64,4 +64,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard) @Get('me')
   me(@CurrentUser('id') userId: string) { return this.auth.me(userId); }
+
+  @UseGuards(JwtAuthGuard) @Post('change-password')
+  changePassword(@CurrentUser('id') userId: string, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(userId, dto);
+  }
 }

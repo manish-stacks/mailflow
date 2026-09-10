@@ -16,16 +16,31 @@ exports.DomainsController = void 0;
 const common_1 = require("@nestjs/common");
 const class_validator_1 = require("class-validator");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const domains_service_1 = require("./domains.service");
 class CreateDomainDto {
     domain;
+    // Which mailbox provider this domain's actual email hosting uses (not necessarily
+    // Hostinger) — lets us merge the right SPF include so it doesn't conflict with
+    // whatever the client already has configured there.
+    mailboxProvider;
+    customSpfInclude;
 }
 __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateDomainDto.prototype, "domain", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['hostinger', 'google', 'microsoft', 'zoho', 'godaddy', 'custom', 'none']),
+    __metadata("design:type", String)
+], CreateDomainDto.prototype, "mailboxProvider", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateDomainDto.prototype, "customSpfInclude", void 0);
 let DomainsController = class DomainsController {
     svc;
     constructor(svc) {
@@ -33,7 +48,9 @@ let DomainsController = class DomainsController {
     }
     findAll(ws) { return this.svc.findAll(ws); }
     findOne(ws, id) { return this.svc.findOne(ws, id); }
-    create(ws, dto) { return this.svc.create(ws, dto.domain); }
+    create(ws, dto) {
+        return this.svc.create(ws, dto.domain);
+    }
     verify(ws, id) { return this.svc.verify(ws, id); }
     remove(ws, id) { return this.svc.remove(ws, id); }
 };
@@ -82,6 +99,6 @@ __decorate([
 ], DomainsController.prototype, "remove", null);
 exports.DomainsController = DomainsController = __decorate([
     (0, common_1.Controller)('domains'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __metadata("design:paramtypes", [domains_service_1.DomainsService])
 ], DomainsController);

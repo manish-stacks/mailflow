@@ -1,10 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { Subscription, User, Workspace } from '@/database/entities';
+import { Payment, Subscription, User, Workspace } from '@/database/entities';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { randomToken } from '@/common/tokens';
+import { ADMIN_PERMISSIONS, AdminPermission } from '@/common/permissions';
 import { BillingService } from '@/modules/billing/billing.service';
 
 /**
@@ -17,8 +20,11 @@ export class AdminService {
     @InjectRepository(Workspace) private workspaces: Repository<Workspace>,
     @InjectRepository(User) private users: Repository<User>,
     @InjectRepository(Subscription) private subs: Repository<Subscription>,
+    @InjectRepository(Payment) private payments: Repository<Payment>,
     private billing: BillingService,
     private db: DataSource,
+    private jwt: JwtService,
+    private config: ConfigService,
   ) {}
 
   async stats() {
@@ -116,24 +122,128 @@ export class AdminService {
 
   /* --------------------------------------------------------- operators */
 
-  listAdmins() {
-    return this.users.find({
+  /** Every user with any platform-staff access — full super admins and delegated staff alike. */
+  async listAdmins() {
+    const rows = await this.users.find({
       where: { isSuperAdmin: true },
-      select: ['id', 'email', 'firstName', 'lastName', 'lastLoginAt', 'createdAt'],
+      select: ['id', 'email', 'firstName', 'lastName', 'lastLoginAt', 'createdAt', 'isSuperAdmin', 'adminPermissions'],
     });
+    const staff = await this.db.query(
+      `SELECT id, email, first_name, last_name, last_login_at, created_at, is_super_admin, admin_permissions
+       FROM users WHERE is_super_admin = 0 AND admin_permissions IS NOT NULL AND JSON_LENGTH(admin_permissions) > 0`,
+    );
+    const mapped = staff.map((u: any) => ({
+      id: u.id, email: u.email, firstName: u.first_name, lastName: u.last_name,
+      lastLoginAt: u.last_login_at, createdAt: u.created_at,
+      isSuperAdmin: false, adminPermissions: typeof u.admin_permissions === 'string' ? JSON.parse(u.admin_permissions) : u.admin_permissions,
+    }));
+    return [...rows, ...mapped];
   }
 
-  async grantAdmin(email: string) {
+  availablePermissions() {
+    return ADMIN_PERMISSIONS;
+  }
+
+  /**
+   * Grants access. `permissions` scopes a limited "staff" admin (support/billing style);
+   * omit it (or pass `full: true`) to make the account a true super admin with everything.
+   */
+  async grantAdmin(email: string, opts: { full?: boolean; permissions?: AdminPermission[] } = {}) {
     const user = await this.users.findOne({ where: { email: email.toLowerCase() } });
     if (!user) throw new NotFoundException('No user with that email');
-    await this.users.update(user.id, { isSuperAdmin: true });
-    return { message: `${user.email} is now a platform administrator` };
+    if (opts.full || !opts.permissions?.length) {
+      await this.users.update(user.id, { isSuperAdmin: true, adminPermissions: null });
+      return { message: `${user.email} is now a full platform administrator` };
+    }
+    const clean = opts.permissions.filter((p) => (ADMIN_PERMISSIONS as readonly string[]).includes(p));
+    await this.users.update(user.id, { isSuperAdmin: false, adminPermissions: clean });
+    return { message: `${user.email} was granted staff access with ${clean.length} permission(s)` };
+  }
+
+  async updateAdminPermissions(userId: string, permissions: AdminPermission[]) {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.isSuperAdmin) throw new BadRequestException('Full admins already have every permission');
+    const clean = permissions.filter((p) => (ADMIN_PERMISSIONS as readonly string[]).includes(p));
+    await this.users.update(userId, { adminPermissions: clean });
+    return { message: 'Permissions updated', permissions: clean };
   }
 
   async revokeAdmin(userId: string, actorId: string) {
     if (userId === actorId) throw new BadRequestException('You cannot revoke your own admin access');
-    await this.users.update(userId, { isSuperAdmin: false });
+    await this.users.update(userId, { isSuperAdmin: false, adminPermissions: null });
     return { message: 'Platform admin access revoked' };
+  }
+
+  /* ------------------------------------------------------- impersonation */
+
+  /**
+   * Issues a short-lived access token for the workspace owner, no refresh token
+   * involved on purpose — the session simply expires. Meant to be opened in a
+   * fresh browser tab (see the frontend `/impersonate` route) so the admin's own
+   * session, kept in localStorage, is never touched.
+   */
+  async impersonateWorkspace(workspaceId: string, actorId: string) {
+    const ws = await this.workspaces.findOne({ where: { id: workspaceId } });
+    if (!ws) throw new NotFoundException('Workspace not found');
+    const owner = await this.users.findOne({ where: { id: ws.ownerId } });
+    if (!owner) throw new NotFoundException('This workspace has no owner account');
+
+    const accessToken = await this.jwt.signAsync(
+      { sub: owner.id, email: owner.email, imp: true, by: actorId },
+      { secret: this.config.get('jwt.accessSecret'), expiresIn: '30m' },
+    );
+    return {
+      accessToken,
+      expiresInMinutes: 30,
+      workspace: { id: ws.id, name: ws.name, slug: ws.slug },
+      user: { id: owner.id, email: owner.email, firstName: owner.firstName, lastName: owner.lastName },
+    };
+  }
+
+  /* ------------------------------------------------------------ payments */
+
+  async listPayments(q: PaginationDto & { status?: string; workspaceId?: string; from?: string; to?: string }) {
+    const params: any[] = [];
+    let where = '1=1';
+    if (q.status) { where += ' AND p.status = ?'; params.push(q.status); }
+    if (q.workspaceId) { where += ' AND p.workspace_id = ?'; params.push(q.workspaceId); }
+    if (q.from) { where += ' AND p.created_at >= ?'; params.push(q.from); }
+    if (q.to) { where += ' AND p.created_at <= ?'; params.push(/^\d{4}-\d{2}-\d{2}$/.test(q.to) ? `${q.to} 23:59:59` : q.to); }
+    if (q.search) {
+      where += ' AND (w.name LIKE ? OR u.email LIKE ? OR p.invoice_number LIKE ? OR p.payment_id LIKE ?)';
+      params.push(`%${q.search}%`, `%${q.search}%`, `%${q.search}%`, `%${q.search}%`);
+    }
+
+    const offset = (q.page - 1) * q.limit;
+    const rows = await this.db.query(`
+      SELECT p.id, p.invoice_number, p.order_id, p.payment_id, p.amount, p.currency, p.billing_cycle,
+             p.status, p.method, p.failure_reason, p.notes, p.paid_at, p.created_at,
+             w.id AS workspace_id, w.name AS workspace_name, u.email AS owner_email
+      FROM payments p
+      LEFT JOIN workspaces w ON w.id = p.workspace_id
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE ${where}
+      ORDER BY p.created_at DESC LIMIT ? OFFSET ?
+    `, [...params, q.limit, offset]);
+
+    const [{ total }] = await this.db.query(`
+      SELECT COUNT(*) AS total FROM payments p
+      LEFT JOIN workspaces w ON w.id = p.workspace_id
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE ${where}
+    `, params);
+
+    const data = rows.map((r: any) => ({
+      id: r.id, invoiceNumber: r.invoice_number, orderId: r.order_id, paymentId: r.payment_id,
+      amount: r.amount, currency: r.currency, billingCycle: r.billing_cycle, status: r.status,
+      method: r.method, failureReason: r.failure_reason,
+      notes: typeof r.notes === 'string' ? JSON.parse(r.notes) : r.notes,
+      paidAt: r.paid_at, createdAt: r.created_at,
+      workspace: { id: r.workspace_id, name: r.workspace_name },
+      ownerEmail: r.owner_email,
+    }));
+    return paginate(data, +total, q.page, q.limit);
   }
 
   /**

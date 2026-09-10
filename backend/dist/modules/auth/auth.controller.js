@@ -58,6 +58,9 @@ let AuthController = class AuthController {
     reset(dto) { return this.auth.resetPassword(dto); }
     verify(token) { return this.auth.verifyEmail(token); }
     me(userId) { return this.auth.me(userId); }
+    changePassword(userId, dto) {
+        return this.auth.changePassword(userId, dto);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -135,6 +138,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "me", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('change-password'),
+    __param(0, (0, decorators_1.CurrentUser)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.ChangePasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "changePassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

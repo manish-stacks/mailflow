@@ -15,11 +15,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CampaignsController = void 0;
 const common_1 = require("@nestjs/common");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const analytics_service_1 = require("../analytics/analytics.service");
 const campaigns_service_1 = require("./campaigns.service");
 const dto_1 = require("./dto");
+// ApiKeyAuthGuard accepts an `x-api-key` header OR a normal session JWT,
+// so this controller is now usable both from the dashboard and via API keys.
 let CampaignsController = class CampaignsController {
     svc;
     analytics;
@@ -224,6 +226,6 @@ __decorate([
 ], CampaignsController.prototype, "activity", null);
 exports.CampaignsController = CampaignsController = __decorate([
     (0, common_1.Controller)('campaigns'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __metadata("design:paramtypes", [campaigns_service_1.CampaignsService, analytics_service_1.AnalyticsService])
 ], CampaignsController);

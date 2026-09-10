@@ -21,6 +21,11 @@ export class WorkspaceGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
+
+    // Request was already authenticated + scoped to a workspace via an API key
+    // (see ApiKeyAuthGuard) — trust that instead of doing a membership lookup.
+    if (req.apiKeyAuth) return true;
+
     const workspaceId: string = req.headers['x-workspace-id'] || req.query?.workspaceId;
     if (!workspaceId) throw new BadRequestException('Missing x-workspace-id header');
     if (!req.user?.id) throw new ForbiddenException();

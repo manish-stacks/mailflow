@@ -1,14 +1,16 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { CurrentUser, Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { AnalyticsService } from '@/modules/analytics/analytics.service';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto, QueryCampaignsDto, ScheduleCampaignDto, TestCampaignDto, UpdateCampaignDto } from './dto';
 
+// ApiKeyAuthGuard accepts an `x-api-key` header OR a normal session JWT,
+// so this controller is now usable both from the dashboard and via API keys.
 @Controller('campaigns')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class CampaignsController {
   constructor(private svc: CampaignsService, private analytics: AnalyticsService) {}
 

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, KeyRound, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, Copy, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { canAdmin, useAuth } from '@/store/auth';
@@ -53,6 +53,12 @@ export default function ApiKeysPage() {
           <div>
             <CardTitle>API keys</CardTitle>
             <CardDescription>Use these to call the MailFlow API from your own systems. Keys are shown once.</CardDescription>
+            <a
+              href="/docs/api-keys.md" target="_blank" rel="noreferrer"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <BookOpen className="h-3.5 w-3.5" /> View API documentation
+            </a>
           </div>
           {editable && <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Create key</Button>}
         </CardHeader>

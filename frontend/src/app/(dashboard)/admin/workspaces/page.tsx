@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Copy, MoreHorizontal, Play, Plus, Search } from 'lucide-react';
+import { Ban, Copy, LogIn, MoreHorizontal, Play, Plus, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, formatNumber } from '@/lib/utils';
 import type { AdminWorkspace, Plan } from '@/types';
@@ -63,6 +63,16 @@ export default function AdminWorkspacesPage() {
     onError: (e: any) => toast.error('Action failed', e.message),
   });
 
+  /** Opens the client's account in a brand-new tab; the admin's own tab is untouched. */
+  const impersonate = useMutation({
+    mutationFn: (w: AdminWorkspace) => api.post<any>(`/admin/workspaces/${w.id}/impersonate`, {}).then((r) => ({ ...r, workspaceName: w.name })),
+    onSuccess: (res) => {
+      const url = `/impersonate?token=${encodeURIComponent(res.accessToken)}&workspace=${encodeURIComponent(res.workspace.id)}&label=${encodeURIComponent(res.workspaceName)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
+    onError: (e: any) => toast.error('Could not log in as this client', e.message),
+  });
+
   const rows = workspaces.data?.data ?? [];
 
   return (
@@ -121,6 +131,9 @@ export default function AdminWorkspacesPage() {
                           <DropdownContent align="end">
                             <DropdownItem onSelect={() => { setPlanFor(w); setPlanChoice({ plan: w.plan?.slug ?? 'free', billingCycle: 'monthly', trialDays: 0 }); }}>
                               Change package
+                            </DropdownItem>
+                            <DropdownItem onSelect={() => impersonate.mutate(w)}>
+                              <LogIn className="h-4 w-4" /> Login as client
                             </DropdownItem>
                             {w.status === 'active' ? (
                               <DropdownItem destructive onSelect={() => setStatusM.mutate({ id: w.id, status: 'suspended' })}>

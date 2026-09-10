@@ -118,6 +118,20 @@ export class AuthService {
     return { message: 'Password updated' };
   }
 
+  /** Self-service password change for a logged-in user (requires current password). */
+  async changePassword(userId: string, dto: { currentPassword: string; newPassword: string }) {
+    const user = await this.users.createQueryBuilder('u')
+      .addSelect('u.passwordHash')
+      .where('u.id = :id', { id: userId }).getOne();
+    if (!user || !(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+    await this.users.update(user.id, { passwordHash: await bcrypt.hash(dto.newPassword, 12) });
+    // Log the user out everywhere else for safety.
+    await this.tokens.update({ userId: user.id }, { revokedAt: new Date() });
+    return { message: 'Password updated' };
+  }
+
   async verifyEmail(token: string) {
     const user = await this.users.createQueryBuilder('u').addSelect('u.verificationToken')
       .where('u.verificationToken = :t', { t: token }).getOne();

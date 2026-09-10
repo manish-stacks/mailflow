@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ArrayMaxSize, IsArray, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { QueryContactsDto } from '@/modules/contacts/dto';
 import { ContactsService } from '@/modules/contacts/contacts.service';
@@ -20,7 +20,7 @@ class ListContactsDto {
 }
 
 @Controller('lists')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class ListsController {
   constructor(private svc: ListsService, private contacts: ContactsService) {}
 

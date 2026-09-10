@@ -1,13 +1,13 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { CreateSegmentDto, PreviewSegmentDto, UpdateSegmentDto } from './dto';
 import { FIELD_MAP, OPERATORS_BY_KIND } from './segment-rules';
 import { SegmentsService } from './segments.service';
 
 @Controller('segments')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class SegmentsController {
   constructor(private svc: SegmentsService) {}
 

@@ -17,6 +17,12 @@ export class User extends BaseEntity {
   /** Platform operator (the agency running MailFlow), not a workspace role. */
   @Column({ name: 'is_super_admin', type: 'tinyint', default: 0, transformer: { to: (v) => (v ? 1 : 0), from: (v) => !!v } })
   isSuperAdmin: boolean;
+  /**
+   * Granular platform-staff permissions (e.g. 'workspaces.manage', 'payments.view').
+   * Ignored for a true super admin — they always have full access regardless of this list.
+   */
+  @Column({ name: 'admin_permissions', type: 'json', nullable: true })
+  adminPermissions: string[] | null;
   /** Set when an admin creates the login; the user is nudged to reset on first sign-in. */
   @Column({ name: 'must_change_password', type: 'tinyint', default: 0, transformer: { to: (v) => (v ? 1 : 0), from: (v) => !!v } })
   mustChangePassword: boolean;

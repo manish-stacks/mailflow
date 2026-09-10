@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 const class_validator_1 = require("class-validator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const suppression_service_1 = require("./suppression.service");
 class AddSuppressionDto {
@@ -81,6 +81,6 @@ __decorate([
 ], SuppressionController.prototype, "remove", null);
 exports.SuppressionController = SuppressionController = __decorate([
     (0, common_1.Controller)('suppressions'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __metadata("design:paramtypes", [suppression_service_1.SuppressionService])
 ], SuppressionController);

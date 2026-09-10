@@ -59,12 +59,33 @@ __decorate([
 ], InviteMemberDto.prototype, "role", void 0);
 class UpdateMemberDto {
     role;
+    status;
+    firstName;
+    lastName;
 }
 exports.UpdateMemberDto = UpdateMemberDto;
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsIn)(['admin', 'editor', 'viewer']),
     __metadata("design:type", String)
 ], UpdateMemberDto.prototype, "role", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['active', 'disabled']),
+    __metadata("design:type", String)
+], UpdateMemberDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], UpdateMemberDto.prototype, "firstName", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], UpdateMemberDto.prototype, "lastName", void 0);
 /**
  * Creates the login outright instead of emailing an invite — for agencies that
  * hand over credentials directly. `sendCredentials` mails the password once;

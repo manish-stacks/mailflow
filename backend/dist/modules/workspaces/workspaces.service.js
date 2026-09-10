@@ -117,10 +117,9 @@ let WorkspacesService = class WorkspacesService {
     async listMembers(workspaceId) {
         const members = await this.members.find({ where: { workspaceId }, relations: ['user'] });
         return members.map((m) => ({
-            id: m.id, role: m.role, status: m.status,
-            email: m.user?.email || m.invitedEmail,
-            firstName: m.user?.firstName, lastName: m.user?.lastName,
-            createdAt: m.createdAt,
+            id: m.id, workspaceId: m.workspaceId, userId: m.userId, role: m.role, status: m.status,
+            invitedEmail: m.invitedEmail, createdAt: m.createdAt,
+            user: m.user ? { id: m.user.id, email: m.user.email, firstName: m.user.firstName, lastName: m.user.lastName } : undefined,
         }));
     }
     async invite(workspaceId, dto, invitedBy) {
@@ -150,11 +149,28 @@ let WorkspacesService = class WorkspacesService {
         const member = await this.members.findOne({ where: { id: memberId, workspaceId } });
         if (!member)
             throw new common_1.NotFoundException('Member not found');
-        if (member.role === 'owner')
-            throw new common_1.BadRequestException('The owner role cannot be changed');
-        await this.members.update(memberId, { role: dto.role });
-        await this.log(workspaceId, actorId, 'member.role_changed', 'workspace_member', memberId, dto);
-        return { message: 'Role updated' };
+        if (member.role === 'owner' && (dto.role || dto.status)) {
+            throw new common_1.BadRequestException('The owner cannot be changed or disabled');
+        }
+        if (dto.role)
+            await this.members.update(memberId, { role: dto.role });
+        if (dto.status) {
+            await this.members.update(memberId, { status: dto.status });
+            if (dto.status === 'disabled' && member.userId) {
+                // Also kill any active sessions so a disabled member is logged out immediately.
+                await this.dataSource.getRepository(entities_1.RefreshToken).update({ userId: member.userId }, { revokedAt: new Date() });
+            }
+            await this.log(workspaceId, actorId, dto.status === 'disabled' ? 'member.disabled' : 'member.enabled', 'workspace_member', memberId, null);
+        }
+        if ((dto.firstName || dto.lastName) && member.userId) {
+            await this.users.update(member.userId, {
+                ...(dto.firstName ? { firstName: dto.firstName } : {}),
+                ...(dto.lastName ? { lastName: dto.lastName } : {}),
+            });
+        }
+        if (dto.role)
+            await this.log(workspaceId, actorId, 'member.role_changed', 'workspace_member', memberId, dto);
+        return { message: 'Member updated' };
     }
     /**
      * Creates a login and attaches it to this workspace in one step. If the person

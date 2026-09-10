@@ -24,6 +24,11 @@ let User = class User extends base_entity_1.BaseEntity {
     lastLoginAt;
     /** Platform operator (the agency running MailFlow), not a workspace role. */
     isSuperAdmin;
+    /**
+     * Granular platform-staff permissions (e.g. 'workspaces.manage', 'payments.view').
+     * Ignored for a true super admin — they always have full access regardless of this list.
+     */
+    adminPermissions;
     /** Set when an admin creates the login; the user is nudged to reset on first sign-in. */
     mustChangePassword;
     createdBy;
@@ -70,6 +75,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'is_super_admin', type: 'tinyint', default: 0, transformer: { to: (v) => (v ? 1 : 0), from: (v) => !!v } }),
     __metadata("design:type", Boolean)
 ], User.prototype, "isSuperAdmin", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'admin_permissions', type: 'json', nullable: true }),
+    __metadata("design:type", Array)
+], User.prototype, "adminPermissions", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'must_change_password', type: 'tinyint', default: 0, transformer: { to: (v) => (v ? 1 : 0), from: (v) => !!v } }),
     __metadata("design:type", Boolean)

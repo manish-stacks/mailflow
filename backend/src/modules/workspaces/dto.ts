@@ -16,7 +16,10 @@ export class InviteMemberDto {
 }
 
 export class UpdateMemberDto {
-  @IsIn(['admin', 'editor', 'viewer']) role: 'admin' | 'editor' | 'viewer';
+  @IsOptional() @IsIn(['admin', 'editor', 'viewer']) role?: 'admin' | 'editor' | 'viewer';
+  @IsOptional() @IsIn(['active', 'disabled']) status?: 'active' | 'disabled';
+  @IsOptional() @IsString() @MaxLength(100) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(100) lastName?: string;
 }
 
 /**

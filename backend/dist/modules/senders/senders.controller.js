@@ -16,7 +16,7 @@ exports.SendersController = void 0;
 const common_1 = require("@nestjs/common");
 const class_validator_1 = require("class-validator");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const senders_service_1 = require("./senders.service");
 class CreateSenderDto {
@@ -77,7 +77,7 @@ __decorate([
 ], SendersController.prototype, "verify", null);
 __decorate([
     (0, common_1.Get)('senders'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __param(0, (0, decorators_1.WorkspaceId)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -85,7 +85,7 @@ __decorate([
 ], SendersController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)('senders'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     (0, decorators_1.Roles)('admin'),
     __param(0, (0, decorators_1.WorkspaceId)()),
     __param(1, (0, common_1.Body)()),
@@ -95,7 +95,7 @@ __decorate([
 ], SendersController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)('senders/:id'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     (0, decorators_1.Roles)('admin'),
     __param(0, (0, decorators_1.WorkspaceId)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
@@ -106,7 +106,7 @@ __decorate([
 ], SendersController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)('senders/:id'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     (0, decorators_1.Roles)('admin'),
     __param(0, (0, decorators_1.WorkspaceId)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
@@ -116,7 +116,7 @@ __decorate([
 ], SendersController.prototype, "remove", null);
 __decorate([
     (0, common_1.Post)('senders/:id/resend'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     (0, decorators_1.Roles)('admin'),
     __param(0, (0, decorators_1.WorkspaceId)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),

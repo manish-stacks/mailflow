@@ -16,7 +16,7 @@ exports.ListsController = void 0;
 const common_1 = require("@nestjs/common");
 const class_validator_1 = require("class-validator");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const dto_1 = require("../contacts/dto");
 const contacts_service_1 = require("../contacts/contacts.service");
@@ -160,6 +160,6 @@ __decorate([
 ], ListsController.prototype, "removeContacts", null);
 exports.ListsController = ListsController = __decorate([
     (0, common_1.Controller)('lists'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __metadata("design:paramtypes", [lists_service_1.ListsService, contacts_service_1.ContactsService])
 ], ListsController);

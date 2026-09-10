@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { CurrentUser, Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { AiService } from './ai.service';
 import { REWRITE_ACTIONS, RewriteAction } from './prompts';
@@ -27,7 +27,7 @@ class RewriteDto {
 }
 
 @Controller('ai')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 @Throttle({ default: { limit: 20, ttl: 60_000 } })
 export class AiController {
   constructor(private ai: AiService) {}

@@ -3,9 +3,12 @@ export type ContactStatus = 'active' | 'unsubscribed' | 'bounced' | 'complained'
 export type CampaignStatus =
   | 'draft' | 'scheduled' | 'preparing' | 'sending' | 'completed' | 'paused' | 'cancelled' | 'failed';
 
+export type AdminPermission = 'workspaces.view' | 'workspaces.manage' | 'plans.manage' | 'payments.view' | 'impersonate';
+
 export interface User {
   id: string; email: string; firstName?: string; lastName?: string;
   emailVerified?: boolean; isSuperAdmin?: boolean; mustChangePassword?: boolean;
+  adminPermissions?: AdminPermission[] | null;
 }
 
 export interface Workspace {
@@ -212,3 +215,15 @@ export interface PaymentRecord {
 }
 
 export interface PaymentConfig { enabled: boolean; keyId: string | null }
+
+/** Cross-tenant payment row, as seen from the platform-admin payment history. */
+export interface AdminPaymentRecord extends PaymentRecord {
+  workspace?: { id: string; name: string } | null;
+  ownerEmail?: string;
+}
+
+export interface AdminOperator {
+  id: string; email: string; firstName?: string; lastName?: string;
+  isSuperAdmin: boolean; adminPermissions?: AdminPermission[] | null;
+  lastLoginAt?: string; createdAt: string;
+}

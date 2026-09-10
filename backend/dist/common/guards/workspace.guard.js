@@ -34,6 +34,10 @@ let WorkspaceGuard = class WorkspaceGuard {
     }
     async canActivate(ctx) {
         const req = ctx.switchToHttp().getRequest();
+        // Request was already authenticated + scoped to a workspace via an API key
+        // (see ApiKeyAuthGuard) — trust that instead of doing a membership lookup.
+        if (req.apiKeyAuth)
+            return true;
         const workspaceId = req.headers['x-workspace-id'] || req.query?.workspaceId;
         if (!workspaceId)
             throw new common_1.BadRequestException('Missing x-workspace-id header');

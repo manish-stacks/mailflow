@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 const throttler_1 = require("@nestjs/throttler");
 const class_validator_1 = require("class-validator");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const ai_service_1 = require("./ai.service");
 const prompts_1 = require("./prompts");
@@ -161,7 +161,7 @@ __decorate([
 ], AiController.prototype, "rewrite", null);
 exports.AiController = AiController = __decorate([
     (0, common_1.Controller)('ai'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     (0, throttler_1.Throttle)({ default: { limit: 20, ttl: 60_000 } }),
     __metadata("design:paramtypes", [ai_service_1.AiService])
 ], AiController);

@@ -11,14 +11,37 @@ export class ApiError extends Error {
 const ACCESS = 'mf_access';
 const REFRESH = 'mf_refresh';
 const WORKSPACE = 'mf_workspace';
+/** Set only for an impersonation tab — sessionStorage is per-tab, so it never
+ *  touches the admin's own localStorage session in the tab they started from. */
+const IMPERSONATING = 'mf_impersonating';
 
 export const tokens = {
-  get access() { return typeof window === 'undefined' ? null : localStorage.getItem(ACCESS); },
-  get refresh() { return typeof window === 'undefined' ? null : localStorage.getItem(REFRESH); },
-  get workspace() { return typeof window === 'undefined' ? null : localStorage.getItem(WORKSPACE); },
+  get access() {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem(ACCESS) || localStorage.getItem(ACCESS);
+  },
+  get refresh() {
+    if (typeof window === 'undefined') return null;
+    // Impersonation sessions are access-token-only by design — they simply expire.
+    if (sessionStorage.getItem(ACCESS)) return null;
+    return localStorage.getItem(REFRESH);
+  },
+  get workspace() {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem(WORKSPACE) || localStorage.getItem(WORKSPACE);
+  },
   set(access: string, refresh: string) { localStorage.setItem(ACCESS, access); localStorage.setItem(REFRESH, refresh); },
   setWorkspace(id: string) { localStorage.setItem(WORKSPACE, id); },
   clear() { [ACCESS, REFRESH, WORKSPACE].forEach((k) => localStorage.removeItem(k)); },
+
+  /** Starts an isolated, this-tab-only session (used by the /impersonate landing page). */
+  startImpersonation(access: string, workspaceId: string, label: string) {
+    sessionStorage.setItem(ACCESS, access);
+    sessionStorage.setItem(WORKSPACE, workspaceId);
+    sessionStorage.setItem(IMPERSONATING, label);
+  },
+  get impersonationLabel() { return typeof window === 'undefined' ? null : sessionStorage.getItem(IMPERSONATING); },
+  endImpersonation() { [ACCESS, WORKSPACE, IMPERSONATING].forEach((k) => sessionStorage.removeItem(k)); },
 };
 
 let refreshing: Promise<boolean> | null = null;

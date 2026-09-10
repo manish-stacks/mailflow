@@ -18,6 +18,10 @@ exports.default = () => ({
         webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
     },
     encryptionKey: process.env.ENCRYPTION_KEY || process.env.JWT_SECRET,
+    // Extra SPF "include:" mechanism merged into every newly-generated SPF record,
+    // so it doesn't clash with the mailbox provider clients' domains are typically
+    // already using (e.g. Hostinger). Leave blank to generate a plain SPF record.
+    spfInclude: process.env.SPF_INCLUDE || '_spf.mail.hostinger.com',
     trackingSecret: process.env.TRACKING_SECRET || 'tracking',
     webhookSecret: process.env.WEBHOOK_SECRET || 'webhook',
     redis: {

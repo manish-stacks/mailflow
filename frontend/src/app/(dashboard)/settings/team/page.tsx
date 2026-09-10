@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, KeyRound, UserPlus } from 'lucide-react';
+import { Copy, KeyRound, Pencil, Power, UserPlus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, initials } from '@/lib/utils';
 import { canAdmin, useAuth } from '@/store/auth';
@@ -32,6 +32,8 @@ export default function TeamPage() {
   const [newLogin, setNewLogin] = useState({ email: '', firstName: '', lastName: '', password: '', role: 'editor', sendCredentials: true });
   const [credentials, setCredentials] = useState<{ email: string; temporaryPassword: string | null } | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [editMember, setEditMember] = useState<WorkspaceMember | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '' });
 
   const members = useQuery({
     queryKey: ['members', activeWorkspace?.id],
@@ -80,6 +82,21 @@ export default function TeamPage() {
     onError: (e: any) => toast.error('Could not update role', e.message),
   });
 
+  const toggleStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'active' | 'disabled' }) => api.patch(`/workspaces/members/${id}`, { status }),
+    onSuccess: (_, { status }) => {
+      toast.success(status === 'disabled' ? 'Login disabled' : 'Login enabled');
+      qc.invalidateQueries({ queryKey: ['members'] });
+    },
+    onError: (e: any) => toast.error('Could not update login access', e.message),
+  });
+
+  const editName = useMutation({
+    mutationFn: () => api.patch(`/workspaces/members/${editMember!.id}`, editForm),
+    onSuccess: () => { toast.success('Member updated'); setEditMember(null); qc.invalidateQueries({ queryKey: ['members'] }); },
+    onError: (e: any) => toast.error('Could not update member', e.message),
+  });
+
   const remove = useMutation({
     mutationFn: (id: string) => api.delete(`/workspaces/members/${id}`),
     onSuccess: () => { toast.success('Member removed'); setRemoveId(null); qc.invalidateQueries({ queryKey: ['members'] }); },
@@ -124,13 +141,29 @@ export default function TeamPage() {
                       ) : <Badge variant={m.role === 'owner' ? 'default' : 'secondary'} className="capitalize">{m.role}</Badge>}
                     </TD>
                     <TD className="hidden text-sm text-muted-foreground md:table-cell">
-                      {m.status === 'invited' ? <Badge variant="warning">Invite pending</Badge> : formatDate(m.createdAt)}
+                      {m.status === 'invited' ? <Badge variant="warning">Invite pending</Badge>
+                        : m.status === 'disabled' ? <Badge variant="destructive">Login disabled</Badge>
+                        : formatDate(m.createdAt)}
                     </TD>
                     <TD>
                       {editable && m.role !== 'owner' && m.user?.id !== user?.id && (
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost" size="icon"
+                            title="Edit member"
+                            onClick={() => { setEditMember(m); setEditForm({ firstName: m.user?.firstName || '', lastName: m.user?.lastName || '' }); }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" title="Reset password" onClick={() => resetPassword.mutate(m.id)}>
                             <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost" size="icon"
+                            title={m.status === 'disabled' ? 'Enable login' : 'Disable login'}
+                            onClick={() => toggleStatus.mutate({ id: m.id, status: m.status === 'disabled' ? 'active' : 'disabled' })}
+                          >
+                            <Power className={`h-4 w-4 ${m.status === 'disabled' ? 'text-destructive' : ''}`} />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setRemoveId(m.id)}>Remove</Button>
                         </div>
@@ -246,6 +279,24 @@ export default function TeamPage() {
             )}
           </div>
           <DialogFooter><Button onClick={() => setCredentials(null)}>Done</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editMember} onOpenChange={() => setEditMember(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="text-lg font-semibold">Edit member</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First name">
+              <Input value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} />
+            </Field>
+            <Field label="Last name">
+              <Input value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditMember(null)}>Cancel</Button>
+            <Button loading={editName.isPending} onClick={() => editName.mutate()}>Save</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const class_validator_1 = require("class-validator");
 const decorators_1 = require("../../common/decorators");
-const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const api_key_guard_1 = require("../../common/guards/api-key.guard");
 const workspace_guard_1 = require("../../common/guards/workspace.guard");
 const storage_service_1 = require("../storage/storage.service");
 const import_service_1 = require("./import.service");
@@ -104,6 +104,6 @@ __decorate([
 ], ImportController.prototype, "status", null);
 exports.ImportController = ImportController = __decorate([
     (0, common_1.Controller)('contacts/import'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, workspace_guard_1.WorkspaceGuard),
+    (0, common_1.UseGuards)(api_key_guard_1.ApiKeyAuthGuard, workspace_guard_1.WorkspaceGuard),
     __metadata("design:paramtypes", [import_service_1.ImportService, storage_service_1.StorageService])
 ], ImportController);

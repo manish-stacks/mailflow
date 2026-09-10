@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CampaignsModule = void 0;
 const common_1 = require("@nestjs/common");
 const analytics_module_1 = require("../analytics/analytics.module");
+const apikeys_module_1 = require("../apikeys/apikeys.module");
 const segments_module_1 = require("../segments/segments.module");
 const senders_module_1 = require("../senders/senders.module");
 const suppression_module_1 = require("../suppression/suppression.module");
@@ -20,7 +21,7 @@ let CampaignsModule = class CampaignsModule {
 exports.CampaignsModule = CampaignsModule;
 exports.CampaignsModule = CampaignsModule = __decorate([
     (0, common_1.Module)({
-        imports: [segments_module_1.SegmentsModule, senders_module_1.SendersModule, analytics_module_1.AnalyticsModule, suppression_module_1.SuppressionModule],
+        imports: [segments_module_1.SegmentsModule, senders_module_1.SendersModule, analytics_module_1.AnalyticsModule, suppression_module_1.SuppressionModule, apikeys_module_1.ApiKeysModule],
         controllers: [campaigns_controller_1.CampaignsController],
         providers: [campaigns_service_1.CampaignsService, campaign_dispatch_service_1.CampaignDispatchService],
         exports: [campaigns_service_1.CampaignsService, campaign_dispatch_service_1.CampaignDispatchService],

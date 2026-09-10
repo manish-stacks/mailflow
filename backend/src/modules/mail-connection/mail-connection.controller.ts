@@ -1,12 +1,12 @@
 import { Body, Controller, Delete, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { MailConnectionService } from './mail-connection.service';
 import { SaveConnectionDto, TestConnectionDto } from './dto';
 
 @Controller('mail-connection')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class MailConnectionController {
   constructor(private svc: MailConnectionService) {}
 

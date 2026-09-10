@@ -2,7 +2,7 @@ import { Controller, Get, Param, Post, Query, Res, UploadedFile as File, UseGuar
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CurrentUser, Public, Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { StorageService } from './storage.service';
 
@@ -13,7 +13,7 @@ export class StorageController {
   constructor(private storage: StorageService) {}
 
   @Post('files/upload')
-  @UseGuards(JwtAuthGuard, WorkspaceGuard) @Roles('editor')
+  @UseGuards(ApiKeyAuthGuard, WorkspaceGuard) @Roles('editor')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
   async upload(
     @WorkspaceId() ws: string,
@@ -30,7 +30,7 @@ export class StorageController {
   }
 
   @Get('files')
-  @UseGuards(JwtAuthGuard, WorkspaceGuard)
+  @UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
   list(@WorkspaceId() ws: string, @Query('purpose') purpose?: string) { return this.storage.list(ws, purpose); }
 
   /** Local-disk fallback serving. With S3 configured, assets are served by the bucket/CDN. */

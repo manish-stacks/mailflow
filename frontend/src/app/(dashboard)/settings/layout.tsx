@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 
 const TABS = [
   { href: '/settings/workspace', label: 'Workspace' },
+  { href: '/settings/account', label: 'Account' },
   { href: '/settings/team', label: 'Team' },
   { href: '/settings/senders', label: 'Senders' },
   { href: '/settings/mail', label: 'Mail Server' },

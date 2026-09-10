@@ -157,6 +157,19 @@ let AuthService = AuthService_1 = class AuthService {
         await this.tokens.update({ userId: user.id }, { revokedAt: new Date() });
         return { message: 'Password updated' };
     }
+    /** Self-service password change for a logged-in user (requires current password). */
+    async changePassword(userId, dto) {
+        const user = await this.users.createQueryBuilder('u')
+            .addSelect('u.passwordHash')
+            .where('u.id = :id', { id: userId }).getOne();
+        if (!user || !(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+            throw new common_1.BadRequestException('Current password is incorrect');
+        }
+        await this.users.update(user.id, { passwordHash: await bcrypt.hash(dto.newPassword, 12) });
+        // Log the user out everywhere else for safety.
+        await this.tokens.update({ userId: user.id }, { revokedAt: new Date() });
+        return { message: 'Password updated' };
+    }
     async verifyEmail(token) {
         const user = await this.users.createQueryBuilder('u').addSelect('u.verificationToken')
             .where('u.verificationToken = :t', { t: token }).getOne();

@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Post,
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsObject, IsOptional, IsUUID } from 'class-validator';
 import { CurrentUser, Roles, WorkspaceId } from '@/common/decorators';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ApiKeyAuthGuard } from '@/common/guards/api-key.guard';
 import { WorkspaceGuard } from '@/common/guards/workspace.guard';
 import { StorageService } from '@/modules/storage/storage.service';
 import { ImportService } from './import.service';
@@ -14,7 +14,7 @@ class StartImportDto {
 }
 
 @Controller('contacts/import')
-@UseGuards(JwtAuthGuard, WorkspaceGuard)
+@UseGuards(ApiKeyAuthGuard, WorkspaceGuard)
 export class ImportController {
   constructor(private svc: ImportService, private storage: StorageService) {}
 

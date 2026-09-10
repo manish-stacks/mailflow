@@ -10,9 +10,12 @@ exports.ApiKeysModule = void 0;
 const common_1 = require("@nestjs/common");
 const apikeys_controller_1 = require("./apikeys.controller");
 const apikeys_service_1 = require("./apikeys.service");
+// Global so ApiKeyAuthGuard can be used on any controller without every
+// feature module having to import ApiKeysModule individually.
 let ApiKeysModule = class ApiKeysModule {
 };
 exports.ApiKeysModule = ApiKeysModule;
 exports.ApiKeysModule = ApiKeysModule = __decorate([
+    (0, common_1.Global)(),
     (0, common_1.Module)({ controllers: [apikeys_controller_1.ApiKeysController], providers: [apikeys_service_1.ApiKeysService], exports: [apikeys_service_1.ApiKeysService] })
 ], ApiKeysModule);

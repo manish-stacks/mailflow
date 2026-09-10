@@ -122,7 +122,9 @@ export default function BillingPage() {
           )}
         </CardHeader>
         <CardContent className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {s?.meters.map((m, i) => <Meter key={i} {...m} />)}
+          {s?.meters.map(({ key: _key, ...meter }, i) => (
+            <Meter key={i} {...meter} />
+          ))}
         </CardContent>
       </Card>
 
