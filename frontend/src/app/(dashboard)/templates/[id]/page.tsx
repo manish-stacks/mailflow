@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 import { api } from '@/lib/api';
 import { canEdit, useAuth } from '@/store/auth';
@@ -25,6 +25,7 @@ export default function TemplateEditorPage() {
   const [testOpen, setTestOpen] = useState(false);
   const [testEmail, setTestEmail] = useState('');
 
+  const qc = useQueryClient();
   const template = useQuery({ queryKey: ['template', id], queryFn: () => api.get<EmailTemplate>(`/templates/${id}`) });
 
   useEffect(() => {
@@ -39,7 +40,12 @@ export default function TemplateEditorPage() {
 
   const save = useMutation({
     mutationFn: () => api.patch(`/templates/${id}`, form),
-    onSuccess: () => toast.success('Template saved'),
+    onSuccess: () => {
+      toast.success('Template saved');
+      // BUG FIX: campaign wizard reads the cached ['templates'] list (30s stale) — refresh it.
+      qc.invalidateQueries({ queryKey: ['templates'] });
+      qc.invalidateQueries({ queryKey: ['template', id] });
+    },
     onError: (e: any) => toast.error('Save failed', e.message),
   });
 

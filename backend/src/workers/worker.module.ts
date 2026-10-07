@@ -11,13 +11,14 @@ import { StorageModule } from '@/modules/storage/storage.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 import { CsvImportProcessor } from './csv-import.processor';
 import { MailConnectionModule } from '@/modules/mail-connection/mail-connection.module';
+import { AutomationsModule } from '@/modules/automations/automations.module';
 import { BillingModule } from '@/modules/billing/billing.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     DatabaseModule, EmailModule, QueueModule, StorageModule,
-    CampaignsModule, AnalyticsModule, WebhooksModule, MailConnectionModule,BillingModule
+    CampaignsModule, AnalyticsModule, WebhooksModule, MailConnectionModule, BillingModule, AutomationsModule
   ],
   providers: [CsvImportProcessor],
 })

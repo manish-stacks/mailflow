@@ -8,6 +8,7 @@ import { CampaignDispatchService } from '@/modules/campaigns/campaign-dispatch.s
 import { WebhooksService } from '@/modules/webhooks/webhooks.service';
 import { QUEUES } from '@/queues/queue.constants';
 import { QueueService } from '@/queues/queue.service';
+import { AutomationsService } from '@/modules/automations/automations.service';
 import { CsvImportProcessor } from './csv-import.processor';
 import { WorkerModule } from './worker.module';
 
@@ -26,6 +27,11 @@ async function bootstrap() {
   const analytics = app.get(AnalyticsService);
   const config = app.get(ConfigService);
   const connection = queues.connection;
+
+  // Drip automations: enroll new contacts and send due steps once a minute.
+  const automations = app.get(AutomationsService);
+  const automationTimer = setInterval(() => automations.tick().catch((e) => logger.error(`automations tick: ${e.message}`)), 60_000);
+  automations.tick().catch(() => null);
 
   const workers: Worker[] = [
     new Worker(QUEUES.CAMPAIGN_PREPARATION, async (job) => {
@@ -57,7 +63,14 @@ async function bootstrap() {
   ];
 
   workers.forEach((w) => {
-    w.on('failed', (job, err) => logger.warn(`[${w.name}] job ${job?.id} failed: ${err.message}`));
+    w.on('failed', (job, err) => {
+      logger.warn(`[${w.name}] job ${job?.id} failed: ${err.message}`);
+      const exhausted = job && job.attemptsMade >= (job.opts.attempts ?? 1);
+      if (w.name === QUEUES.EMAIL_SENDING && exhausted) {
+        dispatch.finalizeFailure(job.data.recipientId, job.data.campaignId, job.data.workspaceId, err.message)
+          .catch((e) => logger.error(`finalizeFailure: ${e.message}`));
+      }
+    });
     w.on('completed', (job) => logger.debug(`[${w.name}] job ${job.id} done`));
   });
 
@@ -65,6 +78,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     logger.log('Shutting down workers...');
+    clearInterval(automationTimer);
     await Promise.all(workers.map((w) => w.close()));
     await app.close();
     process.exit(0);

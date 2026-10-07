@@ -48,6 +48,10 @@ export default function CampaignDetailPage() {
     refetchInterval: (q) => (campaign.data?.status === 'sending' ? 8000 : false),
   });
 
+  const ab = useQuery({
+    queryKey: ['campaign-ab', id],
+    queryFn: () => api.get<{ enabled: boolean; winner?: 'A' | 'B' | null; note?: string; variants: { label: string; subject: string; sent: number; opened: number; clicked: number; openRate: number; clickRate: number }[] }>(`/campaigns/${id}/ab-results`),
+  });
   const links = useQuery({ queryKey: ['campaign-links', id], queryFn: () => api.get<TrackedLink[]>(`/campaigns/${id}/links`) });
   const activity = useQuery({ queryKey: ['campaign-activity', id], queryFn: () => api.get<CampaignEvent[]>(`/campaigns/${id}/activity`, { limit: 100 }) });
 
@@ -139,6 +143,27 @@ export default function CampaignDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 grid gap-4 lg:grid-cols-2">
+          {ab.data?.enabled && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>A/B subject test</CardTitle>
+                <CardDescription>{ab.data.winner ? `Subject ${ab.data.winner} is winning on open rate.` : ab.data.note}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                {ab.data.variants.map((v) => (
+                  <div key={v.label} className={`rounded-lg border p-4 ${ab.data!.winner === v.label ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-border'}`}>
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Subject {v.label}{ab.data!.winner === v.label ? ' · Winner' : ''}</p>
+                    <p className="mt-1 font-medium">{v.subject}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                      <div><p className="text-muted-foreground">Sent</p><p className="font-semibold">{v.sent}</p></div>
+                      <div><p className="text-muted-foreground">Open rate</p><p className="font-semibold">{v.openRate}%</p></div>
+                      <div><p className="text-muted-foreground">Click rate</p><p className="font-semibold">{v.clickRate}%</p></div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader><CardTitle>Engagement funnel</CardTitle></CardHeader>
             <CardContent className="h-[280px]">

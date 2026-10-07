@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Send, Sparkles, Users } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ArrowLeft, ArrowRight, BookmarkPlus, Check, Clock, Info, Search, Send, Sparkles, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/utils';
 import { useAuth } from '@/store/auth';
@@ -17,12 +17,26 @@ import { Field, Input } from '@/components/ui/input';
 import { Select, Switch } from '@/components/ui/primitives';
 import { PageLoader, toast } from '@/components/ui/feedback';
 
+const pad = (n: number) => String(n).padStart(2, '0');
+const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Next time (at least 1 hour away) that falls on the given weekday/hour — UTC when `utc`, otherwise browser-local. */
+function nextSlot(dow: number, hour: number, utc: boolean): Date {
+  const now = new Date(Date.now() + 3600_000);
+  const d = new Date(now);
+  if (utc) { d.setUTCHours(hour, 0, 0, 0); d.setUTCDate(d.getUTCDate() + ((dow - d.getUTCDay() + 7) % 7)); }
+  else { d.setHours(hour, 0, 0, 0); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7)); }
+  if (d < now) d.setDate(d.getDate() + 7);
+  return d;
+}
+
 const STEPS = [
   'Campaign details', 'Audience', 'Sender', 'Content', 'Settings', 'Review', 'Send',
 ];
 
 interface Draft {
-  name: string; subject: string; previewText: string;
+  name: string; subject: string; subjectB: string; previewText: string;
   mode: 'all' | 'lists' | 'segments';
   listIds: string[]; segmentIds: string[];
   senderIdentityId: string; templateId: string; htmlContent: string;
@@ -30,7 +44,7 @@ interface Draft {
 }
 
 const EMPTY: Draft = {
-  name: '', subject: '', previewText: '', mode: 'all', listIds: [], segmentIds: [],
+  name: '', subject: '', subjectB: '', previewText: '', mode: 'all', listIds: [], segmentIds: [],
   senderIdentityId: '', templateId: '', htmlContent: '',
   trackOpens: true, trackClicks: true, includeUnsubscribeLink: true, replyTo: '',
 };
@@ -54,7 +68,37 @@ function Wizard() {
   const lists = useQuery({ queryKey: ['lists', wsId], queryFn: () => api.get<ContactList[]>('/lists'), enabled: !!wsId });
   const segments = useQuery({ queryKey: ['segments', wsId], queryFn: () => api.get<Segment[]>('/segments'), enabled: !!wsId });
   const senders = useQuery({ queryKey: ['senders', wsId], queryFn: () => api.get<SenderIdentity[]>('/senders'), enabled: !!wsId });
-  const templates = useQuery({ queryKey: ['templates', wsId], queryFn: () => api.list<EmailTemplate>('/templates', { limit: 50 }), enabled: !!wsId });
+  const qc = useQueryClient();
+  const [tplSearch, setTplSearch] = useState('');
+  const [editorVer, setEditorVer] = useState(0); // remount the editor when content is replaced from outside (template / AI)
+  // BUG FIX: always refetch on mount so templates created/edited a moment ago show up here.
+  const templates = useQuery({
+    queryKey: ['templates', wsId, 'picker'],
+    queryFn: () => api.list<EmailTemplate>('/templates', { limit: 100 }),
+    enabled: !!wsId, staleTime: 0, refetchOnMount: 'always',
+  });
+  const filteredTemplates = useMemo(() => {
+    const q = tplSearch.trim().toLowerCase();
+    return (templates.data?.data ?? []).filter((t) => !q || t.name.toLowerCase().includes(q) || (t.subject || '').toLowerCase().includes(q));
+  }, [templates.data, tplSearch]);
+
+  const pickTemplate = (t?: EmailTemplate) => {
+    if (t && draft.htmlContent.trim() && draft.templateId !== t.id
+      && !window.confirm('Replace the current email content with this template?')) return;
+    setEditorVer((v) => v + 1);
+    set({
+      templateId: t?.id ?? '',
+      htmlContent: t ? (t.htmlContent ?? '') : draft.htmlContent,
+      subject: draft.subject || t?.subject || '',
+      previewText: draft.previewText || t?.previewText || '',
+    });
+  };
+
+  const saveAsTemplate = useMutation({
+    mutationFn: () => api.post<EmailTemplate>(`/campaigns/${campaignId}/save-as-template`, { name: draft.name }),
+    onSuccess: () => { toast.success('Saved as template'); qc.invalidateQueries({ queryKey: ['templates'] }); },
+    onError: (e: any) => toast.error('Could not save template', e.message),
+  });
 
   const existing = useQuery({
     queryKey: ['campaign', existingId],
@@ -66,7 +110,7 @@ function Wizard() {
     if (!existing.data) return;
     const c = existing.data;
     setDraft({
-      name: c.name, subject: c.subject || '', previewText: c.previewText || '',
+      name: c.name, subject: c.subject || '', subjectB: c.settings?.subjectB || '', previewText: c.previewText || '',
       mode: c.audience?.mode || 'all',
       listIds: c.audience?.listIds || [],
       segmentIds: c.audience?.segmentIds || [],
@@ -104,6 +148,7 @@ function Wizard() {
       trackClicks: draft.trackClicks,
       includeUnsubscribeLink: draft.includeUnsubscribeLink,
       replyTo: draft.replyTo || undefined,
+      subjectB: draft.subjectB.trim() || undefined,
     },
   });
 
@@ -124,9 +169,22 @@ function Wizard() {
 
   const validation = useQuery({
     queryKey: ['campaign-validate', campaignId, step],
-    queryFn: () => api.get<{ valid: boolean; issues: string[]; estimatedRecipients: number }>(`/campaigns/${campaignId}/validate`),
+    queryFn: () => api.get<{ valid: boolean; issues: string[]; warnings?: string[]; estimatedRecipients: number }>(`/campaigns/${campaignId}/validate`),
     enabled: !!campaignId && step === 5,
   });
+
+  const bestTime = useQuery({
+    queryKey: ['best-send-time', wsId],
+    queryFn: () => api.get<{ basedOn: 'workspace' | 'default'; slots: { dow: number; hour: number }[] }>('/analytics/best-send-time'),
+    enabled: !!wsId && step === 6, staleTime: 300_000,
+  });
+  const suggestions = (() => {
+    const b = bestTime.data;
+    if (!b) return [];
+    const fromData = b.basedOn === 'workspace' && b.slots.length;
+    const raw = fromData ? b.slots.map((s) => nextSlot(s.dow, s.hour, true)) : [2, 3, 4].map((dow) => nextSlot(dow, 10, false));
+    return raw.map((date) => ({ date, label: `${DAYS[date.getDay()]} ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` }));
+  })();
 
   const sendTest = useMutation({
     mutationFn: () => api.post(`/campaigns/${campaignId}/test`, { recipients: [testEmail] }),
@@ -146,8 +204,10 @@ function Wizard() {
   });
 
   const next = async () => {
-    await saveDraft.mutateAsync();
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    try {
+      await saveDraft.mutateAsync();
+      setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    } catch { /* toast already shown by saveDraft.onError — stay on this step */ }
   };
 
   const canAdvance = () => {
@@ -212,6 +272,9 @@ function Wizard() {
                 <p className="text-xs text-muted-foreground">{draft.subject.length} characters — most inboxes truncate past 60.</p>
               </div>
             )}
+            <Field label="Subject line B (optional A/B test)" hint="Half of your audience gets subject A, half gets B. Compare open rates on the campaign page after sending.">
+              <Input value={draft.subjectB} onChange={(e) => set({ subjectB: e.target.value })} placeholder="Try a different angle, e.g. a question or a number" />
+            </Field>
             <Field label="Preview text" hint="The snippet shown next to the subject in the inbox.">
               <Input value={draft.previewText} onChange={(e) => set({ previewText: e.target.value })} placeholder="Plus a new feature we think you will like" />
             </Field>
@@ -363,26 +426,42 @@ function Wizard() {
               <Button variant="outline" onClick={() => setAiOpen(true)}><Sparkles className="h-4 w-4" /> AI Assistant</Button>
             </CardHeader>
             <CardContent>
-              <Field label="Start from a template (optional)">
-                <Select
-                  value={draft.templateId}
-                  onChange={(e) => {
-                    const t = templates.data?.data?.find((x) => x.id === e.target.value);
-                    set({
-                      templateId: e.target.value,
-                      htmlContent: t?.htmlContent ?? draft.htmlContent,
-                      subject: draft.subject || t?.subject || '',
-                    });
-                  }}
-                >
-                  <option value="">Write from scratch</option>
-                  {templates.data?.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </Select>
-              </Field>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-9" value={tplSearch} onChange={(e) => setTplSearch(e.target.value)} placeholder="Search your templates…" />
+                  </div>
+                  <Button variant="outline" onClick={() => templates.refetch()} loading={templates.isFetching}>Refresh</Button>
+                </div>
+                <div className="grid max-h-[340px] gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                  <button onClick={() => pickTemplate(undefined)}
+                    className={`rounded-xl border p-4 text-left text-sm transition ${!draft.templateId ? 'border-primary ring-1 ring-primary' : 'border-border hover:bg-muted/40'}`}>
+                    <p className="font-medium">Write from scratch</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Start with a blank editor</p>
+                  </button>
+                  {filteredTemplates.map((t) => (
+                    <button key={t.id} onClick={() => pickTemplate(t)}
+                      className={`overflow-hidden rounded-xl border text-left transition ${draft.templateId === t.id ? 'border-primary ring-1 ring-primary' : 'border-border hover:bg-muted/40'}`}>
+                      <div className="pointer-events-none h-28 overflow-hidden bg-white">
+                        <iframe title={t.name} sandbox="" srcDoc={t.htmlContent || ''} tabIndex={-1}
+                          className="h-[560px] w-[200%] origin-top-left scale-50 border-0" />
+                      </div>
+                      <div className="border-t border-border p-3">
+                        <p className="truncate text-sm font-medium">{t.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{t.subject || 'No subject'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {templates.isSuccess && !filteredTemplates.length && (
+                  <p className="text-sm text-muted-foreground">No templates found. <Link href="/templates" className="text-primary hover:underline">Create one</Link>.</p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          <EmailEditor value={draft.htmlContent} onChange={(html) => set({ htmlContent: html })} onAiClick={() => setAiOpen(true)} />
+          <EmailEditor key={editorVer} value={draft.htmlContent} onChange={(html) => set({ htmlContent: html })} onAiClick={() => setAiOpen(true)} />
           <MergeTagHelp onInsert={(tag) => set({ htmlContent: draft.htmlContent + tag })} />
         </div>
       )}
@@ -453,6 +532,19 @@ function Wizard() {
               </CardContent>
             </Card>
 
+            {!!validation.data?.warnings?.length && (
+              <Card>
+                <CardHeader><CardTitle>Suggestions</CardTitle><CardDescription>Won't block sending, but improve results.</CardDescription></CardHeader>
+                <CardContent className="space-y-2">
+                  {validation.data.warnings.map((w, i) => (
+                    <p key={i} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" />{w}
+                    </p>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
@@ -476,6 +568,9 @@ function Wizard() {
                 <Input type="email" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="you@company.com" />
                 <Button variant="outline" className="w-full" disabled={!testEmail || !campaignId} loading={sendTest.isPending} onClick={() => sendTest.mutate()}>
                   Send test email
+                </Button>
+                <Button variant="ghost" className="w-full" disabled={!campaignId} loading={saveAsTemplate.isPending} onClick={() => saveAsTemplate.mutate()}>
+                  <BookmarkPlus className="h-4 w-4" /> Save as template
                 </Button>
               </CardContent>
             </Card>
@@ -516,6 +611,24 @@ function Wizard() {
               </Field>
             )}
 
+            {scheduleMode === 'later' && suggestions.length > 0 && (
+              <div className="rounded-lg border border-border p-4">
+                <p className="flex items-center gap-2 text-sm font-medium"><Sparkles className="h-4 w-4 text-primary" /> Suggested send times</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {bestTime.data?.basedOn === 'workspace'
+                    ? 'Based on when your own subscribers open and click (clicks count more).'
+                    : 'Not enough engagement data yet — these are widely effective mid-week mornings. They will become personalised after a few campaigns.'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {suggestions.map((s, i) => (
+                    <Button key={i} size="sm" variant={scheduledAt === toLocalInput(s.date) ? 'secondary' : 'outline'} onClick={() => setScheduledAt(toLocalInput(s.date))}>
+                      {i === 0 && bestTime.data?.basedOn === 'workspace' ? 'Best: ' : ''}{s.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-lg bg-accent px-4 py-3 text-sm">
               About to send <b>{draft.subject || 'this campaign'}</b> to <b>{formatNumber(recipients)}</b> recipients.
             </div>
@@ -550,11 +663,11 @@ function Wizard() {
       <AiAssistantDialog
         open={aiOpen}
         onOpenChange={setAiOpen}
-        onApply={(res) => set({
+        onApply={(res) => { setEditorVer((v) => v + 1); set({
           subject: draft.subject || res.subject,
           previewText: draft.previewText || res.previewText,
           htmlContent: res.body || draft.htmlContent,
-        })}
+        }); }}
       />
     </div>
   );

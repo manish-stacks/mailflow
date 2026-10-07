@@ -27,6 +27,12 @@ export class TemplatesController {
   constructor(private svc: TemplatesService) {}
 
   @Get() findAll(@WorkspaceId() ws: string, @Query() q: QueryTemplatesDto) { return this.svc.findAll(ws, q); }
+  @Get('starters') starters() { return this.svc.starters(); }
+  @Post('from-starter/:key') @Roles('editor')
+  fromStarter(@WorkspaceId() ws: string, @CurrentUser('id') uid: string, @Param('key') key: string) {
+    return this.svc.fromStarter(ws, uid, key);
+  }
+  @Get('categories') categories(@WorkspaceId() ws: string) { return this.svc.categories(ws); }
   @Get(':id') findOne(@WorkspaceId() ws: string, @Param('id', ParseUUIDPipe) id: string) { return this.svc.findOne(ws, id); }
 
   @Post() @Roles('editor')

@@ -53,9 +53,31 @@ export class CampaignsService {
     return c;
   }
 
+  private async loadTemplate(workspaceId: string, templateId: string) {
+    const t = await this.templates.findOne({ where: { id: templateId, workspaceId } });
+    if (!t) throw new BadRequestException('Selected template not found (it may have been deleted)');
+    return t;
+  }
+
+  private async assertSenderExists(workspaceId: string, senderId: string) {
+    const s = await this.senders.findOne({ where: { id: senderId, workspaceId } });
+    if (!s) throw new BadRequestException('Selected sender identity not found');
+  }
+
   async create(workspaceId: string, userId: string, dto: CreateCampaignDto) {
     await this.billing.assertQuota(workspaceId, 'campaigns');
-    const saved = await this.campaigns.save(this.campaigns.create({ ...dto, workspaceId, createdBy: userId, status: 'draft' }));
+    const data: any = { ...dto };
+    // BUG FIX: a template chosen at creation time was stored as an id only, so the
+    // campaign came out empty. Copy its content, same as update() does.
+    if (dto.templateId) {
+      const t = await this.loadTemplate(workspaceId, dto.templateId);
+      data.htmlContent = dto.htmlContent || t.htmlContent;
+      data.subject = dto.subject || t.subject;
+      data.previewText = dto.previewText || t.previewText;
+      data.designJson = dto.designJson ?? t.designJson;
+    }
+    if (dto.senderIdentityId) await this.assertSenderExists(workspaceId, dto.senderIdentityId);
+    const saved = await this.campaigns.save(this.campaigns.create({ ...data, workspaceId, createdBy: userId, status: 'draft' }));
     await this.billing.increment(workspaceId, 'campaignsCreated', 1);
     return saved;
   }
@@ -66,13 +88,13 @@ export class CampaignsService {
 
     // Pulling in a template copies its content so later template edits never mutate a sent campaign.
     if (dto.templateId && dto.templateId !== c.templateId) {
-      const t = await this.templates.findOne({ where: { id: dto.templateId, workspaceId } });
-      if (!t) throw new BadRequestException('Template not found');
+      const t = await this.loadTemplate(workspaceId, dto.templateId);
       dto.htmlContent = dto.htmlContent ?? t.htmlContent;
       dto.subject = dto.subject ?? t.subject;
       dto.previewText = dto.previewText ?? t.previewText;
       dto.designJson = dto.designJson ?? t.designJson;
     }
+    if (dto.senderIdentityId && dto.senderIdentityId !== c.senderIdentityId) await this.assertSenderExists(workspaceId, dto.senderIdentityId);
     await this.campaigns.update(id, dto as any);
     return this.findOne(workspaceId, id);
   }
@@ -129,7 +151,6 @@ export class CampaignsService {
         { ex: audience.excludeListIds });
     }
 
-    if (countOnly) return { count: await qb.getCount(), query: qb };
     return { count: await qb.getCount(), query: qb };
   }
 
@@ -157,7 +178,63 @@ export class CampaignsService {
     const { count } = await this.resolveAudience(workspaceId, c, true);
     if (!count) issues.push('The selected audience contains no sendable contacts');
 
-    return { valid: issues.length === 0, issues, estimatedRecipients: count };
+    return { valid: issues.length === 0, issues, warnings: this.lint(c), estimatedRecipients: count };
+  }
+
+  /** Non-blocking deliverability / quality hints shown on the review step. */
+  lint(c: Campaign): string[] {
+    const w: string[] = [];
+    const subject = c.subject || '';
+    const html = c.htmlContent || '';
+    if (subject.length > 60) w.push(`Subject is ${subject.length} characters — most inboxes cut it off after ~60`);
+    if (/[A-Z]{6,}/.test(subject.replace(/\{\{[^}]*\}\}/g, ''))) w.push('Subject has ALL-CAPS words — a common spam trigger');
+    if ((subject.match(/!/g) || []).length > 1) w.push('Avoid multiple exclamation marks in the subject');
+    if (/\b(free money|act now|100% free|winner|guaranteed|click here|no risk)\b/i.test(subject + ' ' + html.replace(/<[^>]+>/g, ' '))) {
+      w.push('Content contains spam-trigger phrases (e.g. "act now", "100% free")');
+    }
+    if (!/<a\s[^>]*href/i.test(html)) w.push('No links found — add a call-to-action');
+    if (/<img(?![^>]*\balt=)[^>]*>/i.test(html)) w.push('Some images have no alt text');
+    if ((c.settings?.subjectB || '').length > 60) w.push('Subject B is longer than 60 characters');
+    if (!c.previewText) w.push('Preview text is empty — inboxes will show random body text instead');
+    if (c.settings?.includeUnsubscribeLink === false && !html.includes('{{unsubscribe_url}}')) {
+      w.push('No unsubscribe link — risks spam complaints and legal trouble');
+    }
+    const tags = html.match(/\{\{[^}]*\}\}/g) || [];
+    if (tags.some((t) => !/^\{\{\s*[a-zA-Z0-9_.]+\s*(\|\s*default:\s*["'][^"']*["']\s*)?\}\}$/.test(t))) {
+      w.push('A merge tag looks malformed — use {{first_name}} or {{first_name | default: "there"}}');
+    }
+    return w;
+  }
+
+  /** A/B subject results: variant A = even last hex digit of recipient id, B = odd. */
+  async abResults(workspaceId: string, id: string) {
+    const c = await this.findOne(workspaceId, id);
+    if (!c.settings?.subjectB) return { enabled: false, variants: [] };
+    const rows = await this.recipients.query(
+      `SELECT CONV(RIGHT(id,1),16,10) % 2 AS v, COUNT(*) AS total,
+              SUM(status IN ('sent','delivered')) AS sent, SUM(open_count > 0) AS opened, SUM(click_count > 0) AS clicked
+         FROM campaign_recipients WHERE campaign_id = ? AND workspace_id = ? GROUP BY v`, [id, workspaceId]);
+    const pick = (v: number) => rows.find((r: any) => Number(r.v) === v) || {};
+    const mk = (label: string, subject: string, r: any) => {
+      const sent = Number(r.sent || 0);
+      return { label, subject, recipients: Number(r.total || 0), sent, opened: Number(r.opened || 0), clicked: Number(r.clicked || 0),
+        openRate: sent ? +(Number(r.opened || 0) / sent * 100).toFixed(1) : 0,
+        clickRate: sent ? +(Number(r.clicked || 0) / sent * 100).toFixed(1) : 0 };
+    };
+    const a = mk('A', c.subject || c.name, pick(0));
+    const b = mk('B', c.settings.subjectB, pick(1));
+    const winner = a.sent < 20 || b.sent < 20 ? null : a.openRate === b.openRate ? null : a.openRate > b.openRate ? 'A' : 'B';
+    return { enabled: true, variants: [a, b], winner, note: winner ? undefined : 'Not enough data yet for a clear winner (needs 20+ sends per variant).' };
+  }
+
+  /** Save the campaign's current content as a reusable template. */
+  async saveAsTemplate(workspaceId: string, id: string, userId: string, name?: string) {
+    const c = await this.findOne(workspaceId, id);
+    if (!c.htmlContent) throw new BadRequestException('Add email content first');
+    return this.templates.save(this.templates.create({
+      workspaceId, createdBy: userId, name: name || c.name, category: 'general',
+      subject: c.subject, previewText: c.previewText, htmlContent: c.htmlContent, designJson: c.designJson,
+    }));
   }
 
   async send(workspaceId: string, id: string) {
@@ -233,7 +310,7 @@ export class CampaignsService {
 
     const sample = {
       id: 'test', email: recipients[0], firstName: 'FirstName', lastName: 'LastName',
-      customAttributes: { company: 'Workspace ', city: 'Delhi' },
+      customAttributes: { company: 'Acme', city: 'Delhi' },
     };
     const html = renderMergeTags(c.htmlContent, sample);
     const subject = `[TEST] ${renderMergeTags(c.subject || c.name, sample)}`;

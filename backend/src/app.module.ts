@@ -30,6 +30,7 @@ import { MailConnectionModule } from './modules/mail-connection/mail-connection.
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { AutomationsModule } from './modules/automations/automations.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     DomainsModule,
     TemplatesModule,
     CampaignsModule,
+    AutomationsModule,
     AiModule,
     AnalyticsModule,
     TrackingModule,

@@ -55,13 +55,20 @@ export interface EmailTemplate {
   htmlContent?: string; designJson?: any; thumbnail?: string; updatedAt: string; createdAt: string;
 }
 
+export interface AutomationStep { id?: string; position?: number; delayMinutes: number; subject: string; previewText?: string; htmlContent?: string }
+export interface Automation {
+  id: string; name: string; triggerType: 'list_join' | 'contact_created'; listId?: string | null; senderIdentityId?: string | null;
+  status: 'draft' | 'active' | 'paused'; steps?: AutomationStep[]; stepCount?: number; createdAt: string;
+  stats?: { enrolled: number; completed: number; sent: number };
+}
+
 export interface CampaignAudience {
   mode: 'all' | 'lists' | 'segments';
   listIds?: string[]; segmentIds?: string[]; excludeListIds?: string[];
 }
 
 export interface CampaignSettings {
-  trackOpens?: boolean; trackClicks?: boolean; includeUnsubscribeLink?: boolean; replyTo?: string;
+  trackOpens?: boolean; trackClicks?: boolean; includeUnsubscribeLink?: boolean; replyTo?: string; subjectB?: string;
 }
 
 export interface Campaign {

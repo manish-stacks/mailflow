@@ -1,10 +1,11 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Code2, ImagePlus, LayoutTemplate, Loader2, Monitor, Smartphone, Sparkles } from 'lucide-react';
+import { Blocks, Code2, ImagePlus, LayoutTemplate, Loader2, Monitor, Smartphone, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/feedback';
 import { Button } from '@/components/ui/button';
+import { BlockBuilder } from '@/components/BlockBuilder';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/primitives';
 
 /**
@@ -21,6 +22,7 @@ const BLOCKS: Record<string, string> = {
 export function EmailEditor({
   value, onChange, onAiClick,
 }: { value: string; onChange: (html: string) => void; onAiClick?: () => void }) {
+  const [tab, setTab] = useState(value.includes('<!--mf-blocks:') ? 'builder' : 'code');
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [fullscreen, setFullscreen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -54,14 +56,15 @@ export function EmailEditor({
 
   return (
     <div className={cn('rounded-xl border border-border bg-card', fullscreen && 'fixed inset-4 z-50 overflow-hidden shadow-2xl')}>
-      <Tabs defaultValue="code">
+      <Tabs value={tab} onValueChange={setTab}>
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
           <TabsList>
+            <TabsTrigger value="builder"><Blocks className="mr-1.5 h-3.5 w-3.5" /> Builder</TabsTrigger>
             <TabsTrigger value="code"><Code2 className="mr-1.5 h-3.5 w-3.5" /> HTML</TabsTrigger>
             <TabsTrigger value="preview"><Monitor className="mr-1.5 h-3.5 w-3.5" /> Preview</TabsTrigger>
           </TabsList>
 
-          <div className="flex items-center gap-1.5">
+          <div className={cn('flex items-center gap-1.5', tab === 'builder' && 'hidden')}>
             <Button size="sm" variant="outline" disabled={uploading} onClick={() => fileInput.current?.click()}>
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />} Image
             </Button>
@@ -84,6 +87,10 @@ export function EmailEditor({
             <Button size="sm" variant="ghost" onClick={() => setFullscreen(!fullscreen)}>{fullscreen ? 'Exit' : 'Fullscreen'}</Button>
           </div>
         </div>
+
+        <TabsContent value="builder" className="mt-0">
+          <BlockBuilder value={value} onChange={onChange} />
+        </TabsContent>
 
         <TabsContent value="code" className="mt-0">
           <textarea

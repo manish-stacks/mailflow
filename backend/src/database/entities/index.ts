@@ -7,6 +7,7 @@ export * from './campaign.entity';
 export * from './misc.entity';
 export * from './billing.entity';
 export * from './payment.entity';
+export * from './automation.entity';
 
 import { User, RefreshToken } from './user.entity';
 import { Workspace, WorkspaceMember } from './workspace.entity';
@@ -16,6 +17,7 @@ import { EmailTemplate, Campaign, CampaignRecipient, CampaignEvent, TrackedLink 
 import { Unsubscribe, Suppression, UploadedFile, ImportJob, ApiKey, AuditLog, AiUsage } from './misc.entity';
 import { Plan, Subscription, UsagePeriod, EmailConnection } from './billing.entity';
 import { Payment } from './payment.entity';
+import { Automation, AutomationStep, AutomationEnrollment } from './automation.entity';
 
 export const ALL_ENTITIES = [
   User, RefreshToken, Workspace, WorkspaceMember,
@@ -24,4 +26,5 @@ export const ALL_ENTITIES = [
   EmailTemplate, Campaign, CampaignRecipient, CampaignEvent, TrackedLink,
   Unsubscribe, Suppression, UploadedFile, ImportJob, ApiKey, AuditLog, AiUsage,
   Plan, Subscription, UsagePeriod, EmailConnection, Payment,
+  Automation, AutomationStep, AutomationEnrollment,
 ];

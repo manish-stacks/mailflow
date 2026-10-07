@@ -36,6 +36,14 @@ export class CampaignsController {
     return this.svc.duplicate(ws, id, uid);
   }
 
+  @Post(':id/save-as-template') @Roles('editor')
+  saveAsTemplate(@WorkspaceId() ws: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') uid: string, @Body('name') name?: string) {
+    return this.svc.saveAsTemplate(ws, id, uid, name);
+  }
+
+  @Get(':id/ab-results')
+  ab(@WorkspaceId() ws: string, @Param('id', ParseUUIDPipe) id: string) { return this.svc.abResults(ws, id); }
+
   @Get(':id/audience')
   audience(@WorkspaceId() ws: string, @Param('id', ParseUUIDPipe) id: string) { return this.svc.estimateAudience(ws, id); }
 

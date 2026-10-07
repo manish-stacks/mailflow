@@ -16,6 +16,8 @@ export class CampaignSettingsDto {
   @IsOptional() @IsBoolean() trackClicks?: boolean;
   @IsOptional() @IsBoolean() includeUnsubscribeLink?: boolean;
   @IsOptional() @IsEmail() replyTo?: string;
+  /** Optional second subject line — recipients are split 50/50 between subject and subjectB. */
+  @IsOptional() @IsString() @MaxLength(255) subjectB?: string;
 }
 
 export class CreateCampaignDto {

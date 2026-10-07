@@ -5,6 +5,7 @@ import { Brackets, Repository } from 'typeorm';
 import { paginate, PaginationDto } from '@/common/dto/pagination.dto';
 import { EmailTemplate, SenderIdentity } from '@/database/entities';
 import { EmailService } from '@/integrations/email/email.service';
+import { STARTER_TEMPLATES } from './starter-templates';
 import { htmlToText, renderMergeTags } from '@/integrations/email/renderer';
 
 @Injectable()
@@ -26,6 +27,23 @@ export class TemplatesService {
     qb.orderBy('t.updated_at', 'DESC').skip((q.page - 1) * q.limit).take(q.limit);
     const [data, total] = await qb.getManyAndCount();
     return paginate(data, total, q.page, q.limit);
+  }
+
+  starters() { return STARTER_TEMPLATES; }
+
+  fromStarter(workspaceId: string, userId: string, key: string) {
+    const s = STARTER_TEMPLATES.find((x) => x.key === key);
+    if (!s) throw new NotFoundException('Starter template not found');
+    return this.templates.save(this.templates.create({
+      workspaceId, createdBy: userId, name: s.name, category: s.category,
+      subject: s.subject, previewText: s.previewText, htmlContent: s.html,
+    }));
+  }
+
+  async categories(workspaceId: string) {
+    const rows = await this.templates.createQueryBuilder('t').select('t.category', 'category').addSelect('COUNT(*)', 'count')
+      .where('t.workspace_id = :workspaceId', { workspaceId }).groupBy('t.category').getRawMany();
+    return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
   }
 
   async findOne(workspaceId: string, id: string) {

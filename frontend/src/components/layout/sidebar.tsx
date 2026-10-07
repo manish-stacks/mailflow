@@ -18,6 +18,7 @@ const NAV = [
       { label: 'All Campaigns', href: '/campaigns' },
       { label: 'Create Campaign', href: '/campaigns/new' },
       { label: 'Email Templates', href: '/templates' },
+      { label: 'Automations', href: '/automations' },
     ],
   },
   {

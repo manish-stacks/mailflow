@@ -40,6 +40,17 @@ export class CampaignDispatchService {
     private suppression: SuppressionService,
   ) {}
 
+  /** Tiny in-process TTL cache so a 10k-email campaign doesn't re-read the same rows 10k times. */
+  private cache = new Map<string, { exp: number; v: any }>();
+  private async cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+    const hit = this.cache.get(key);
+    if (hit && hit.exp > Date.now()) return hit.v as T;
+    const v = await fn();
+    this.cache.set(key, { exp: Date.now() + ttlMs, v });
+    if (this.cache.size > 500) for (const [k, e] of this.cache) if (e.exp < Date.now()) this.cache.delete(k);
+    return v;
+  }
+
   /** Queue: campaign-preparation */
   async prepare(campaignId: string, workspaceId: string) {
     const campaign = await this.campaigns.findOne({ where: { id: campaignId, workspaceId } });
@@ -92,6 +103,8 @@ export class CampaignDispatchService {
 
     await this.campaigns.update(campaignId, { status: 'sending', totalRecipients: total });
     this.logger.log(`Campaign ${campaignId} prepared with ${total} recipients`);
+    // Tiny campaigns can finish sending before prepare() flips the status — close them out here.
+    await this.maybeComplete(campaignId);
   }
 
   /** Queue: email-sending. Returns false when the job should be retried. */
@@ -99,9 +112,17 @@ export class CampaignDispatchService {
     const recipient = await this.recipients.findOne({ where: { id: recipientId, workspaceId } });
     if (!recipient || ['sent', 'delivered', 'skipped'].includes(recipient.status)) return true;
 
-    const campaign = await this.campaigns.findOne({ where: { id: campaignId, workspaceId } });
+    const campaign = await this.cached(`c:${campaignId}`, 3000, () => this.campaigns.findOne({ where: { id: campaignId, workspaceId } }));
     if (!campaign) return true;
     if (['paused', 'cancelled'].includes(campaign.status)) return true;
+
+    // Atomic claim: two workers (or a duplicate job after pause/resume) can never send the same recipient twice.
+    // A claim older than 5 minutes is treated as a crashed worker and may be taken over.
+    const claim = await this.recipients.createQueryBuilder().update()
+      .set({ sentAt: new Date() })
+      .where('id = :id AND (sent_at IS NULL OR sent_at < :stale)', { id: recipientId, stale: new Date(Date.now() - 5 * 60_000) })
+      .execute();
+    if (!claim.affected) return true;
 
     const contact = await this.contacts.findOne({ where: { id: recipient.contactId } });
     // Last-moment eligibility check: someone may have unsubscribed while the job waited.
@@ -111,11 +132,14 @@ export class CampaignDispatchService {
     }
 
     const sender = campaign.senderIdentityId
-      ? await this.senders.findOne({ where: { id: campaign.senderIdentityId } })
+      ? await this.cached(`s:${campaign.senderIdentityId}`, 60_000, () => this.senders.findOne({ where: { id: campaign.senderIdentityId } }))
       : null;
 
     const html = await this.renderFor(campaign, recipient, contact, workspaceId);
-    const subject = renderMergeTags(campaign.subject || campaign.name, this.contactVars(contact));
+    // A/B subject test: deterministic 50/50 split on the recipient id's last hex digit (matches abResults SQL).
+    const variantB = !!campaign.settings?.subjectB && parseInt(recipient.id.slice(-1), 16) % 2 === 1;
+    const rawSubject = variantB ? campaign.settings!.subjectB! : (campaign.subject || campaign.name);
+    const subject = renderMergeTags(rawSubject, this.contactVars(contact));
 
     const unsub = unsubscribeUrl({
       secret: this.config.get('trackingSecret'),
@@ -146,16 +170,24 @@ export class CampaignDispatchService {
       // "sent" forever. ESP providers with real webhooks (SES/etc.) will override
       // this to 'bounced'/'complained' later via webhooks.service.ts if that fires.
       await this.recipients.update(recipientId, { status: 'delivered', sentAt: new Date(), deliveredAt: new Date(), messageId: res.messageId });
-      await this.campaigns.increment({ id: campaignId }, 'sentCount', 1);
-      await this.campaigns.increment({ id: campaignId }, 'deliveredCount', 1);
-      await this.billing.increment(workspaceId, 'emailsSent', 1);
-      await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'sent', { messageId: res.messageId });
-      await this.recordEvent(workspaceId, campaignId, recipientId, contact.id, 'delivered', { messageId: res.messageId });
+      await Promise.all([
+        this.campaigns.createQueryBuilder().update()
+          .set({ sentCount: () => 'sent_count + 1', deliveredCount: () => 'delivered_count + 1' })
+          .where('id = :id', { id: campaignId }).execute(),
+        this.billing.increment(workspaceId, 'emailsSent', 1),
+        this.events.createQueryBuilder().insert().values((['sent', 'delivered'].map((eventType) => ({
+          workspaceId, campaignId, campaignRecipientId: recipientId, contactId: contact.id,
+          eventType: eventType as any, metadata: { messageId: res.messageId }, dedupeKey: null,
+        })) as any)).orIgnore().execute(),
+      ]);
       await this.maybeComplete(campaignId);
       return true;
     }
 
-    if (res.retryable) return false; // BullMQ retries with backoff
+    if (res.retryable) {
+      await this.recipients.update(recipientId, { sentAt: null as any }); // release the claim so the retry can run
+      return false; // BullMQ retries with backoff
+    }
 
     await this.recipients.update(recipientId, { status: 'failed', errorMessage: res.error?.slice(0, 480) });
     await this.campaigns.increment({ id: campaignId }, 'failedCount', 1);
@@ -172,6 +204,17 @@ export class CampaignDispatchService {
 
     await this.maybeComplete(campaignId);
     return true;
+  }
+
+  /** Called by the worker when a send job has used up all retries — otherwise the recipient would stay
+   *  'queued' forever and the campaign could never complete. */
+  async finalizeFailure(recipientId: string, campaignId: string, workspaceId: string, error: string) {
+    const r = await this.recipients.findOne({ where: { id: recipientId, workspaceId } });
+    if (!r || !['pending', 'queued'].includes(r.status)) return;
+    await this.recipients.update(recipientId, { status: 'failed', errorMessage: `Gave up after retries: ${error}`.slice(0, 480) });
+    await this.campaigns.increment({ id: campaignId }, 'failedCount', 1);
+    await this.recordEvent(workspaceId, campaignId, recipientId, r.contactId, 'failed', { error, final: true });
+    await this.maybeComplete(campaignId);
   }
 
   /** True for permanent SMTP rejections (bad mailbox/domain) — false for temporary/greylisting errors. */
@@ -193,7 +236,7 @@ export class CampaignDispatchService {
     const secret = this.config.get('trackingSecret');
     const trackingBase = this.config.get('trackingBaseUrl');
 
-    const linkRows = await this.links.find({ where: { campaignId: campaign.id } });
+    const linkRows = await this.cached(`l:${campaign.id}`, 60_000, () => this.links.find({ where: { campaignId: campaign.id } }));
     const linkIds = new Map(linkRows.map((l) => [l.urlHash, l.id]));
 
     const settings = campaign.settings || {};
@@ -226,8 +269,8 @@ export class CampaignDispatchService {
 
   private async maybeComplete(campaignId: string) {
     const remaining = await this.dataSource.query(
-      `SELECT COUNT(*) AS c FROM campaign_recipients WHERE campaign_id = ? AND status IN ('pending','queued')`, [campaignId]);
-    if (+remaining[0].c === 0) {
+      `SELECT 1 AS x FROM campaign_recipients WHERE campaign_id = ? AND status IN ('pending','queued') LIMIT 1`, [campaignId]);
+    if (!remaining.length) {
       await this.campaigns.update({ id: campaignId, status: 'sending' as any }, { status: 'completed', completedAt: new Date() });
     }
   }

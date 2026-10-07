@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 09, 2026 at 02:42 PM
+-- Generation Time: Oct 07, 2026 at 08:11 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -69,7 +69,7 @@ CREATE TABLE `api_keys` (
 --
 
 INSERT INTO `api_keys` (`id`, `workspace_id`, `name`, `key_prefix`, `key_hash`, `scopes`, `last_used_at`, `revoked_at`, `created_by`, `created_at`) VALUES
-('ddaf6c02-9b8d-4bce-827c-7f74adade900', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'Web', 'mf_43e8e7bc', '$2b$10$giNBSA/omjiRw3uYoiZ1TeBkt01KGq1H3Vt46ueiLf47KGsk6OlXy', '[\"contacts:read\",\"campaigns:read\"]', NULL, NULL, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '2026-09-09 13:55:58');
+('ddaf6c02-9b8d-4bce-827c-7f74adade900', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'Web', 'mf_43e8e7bc', '$2b$10$giNBSA/omjiRw3uYoiZ1TeBkt01KGq1H3Vt46ueiLf47KGsk6OlXy', '[\"contacts:read\",\"campaigns:read\"]', NULL, '2026-09-10 09:53:33', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '2026-09-09 13:55:58');
 
 -- --------------------------------------------------------
 
@@ -87,6 +87,75 @@ CREATE TABLE `audit_logs` (
   `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`metadata`)),
   `ip` varchar(64) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `audit_logs`
+--
+
+INSERT INTO `audit_logs` (`id`, `workspace_id`, `user_id`, `action`, `entity_type`, `entity_id`, `metadata`, `ip`, `created_at`) VALUES
+('4658283a-bef3-4eac-8f1b-23bce13dfbc8', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'member.password_reset', 'workspace_member', '1a031629-b253-4f0b-9402-b1e3db87229f', NULL, NULL, '2026-09-10 16:01:43'),
+('8e30a5ae-ea29-4c45-a4a3-3935b85fbaea', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'member.created', 'workspace_member', '1a031629-b253-4f0b-9402-b1e3db87229f', '{\"email\":\"mk@gmail.com\",\"role\":\"editor\"}', NULL, '2026-09-10 16:01:38'),
+('d2f21937-eaf6-4fa1-b5e9-7f98011cfc03', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'member.removed', 'workspace_member', '1a031629-b253-4f0b-9402-b1e3db87229f', NULL, NULL, '2026-09-10 16:01:51');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `automations`
+--
+
+CREATE TABLE `automations` (
+  `id` char(36) NOT NULL,
+  `workspace_id` char(36) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `trigger_type` enum('list_join','contact_created') NOT NULL DEFAULT 'list_join',
+  `list_id` char(36) DEFAULT NULL,
+  `sender_identity_id` char(36) DEFAULT NULL,
+  `status` enum('draft','active','paused') NOT NULL DEFAULT 'draft',
+  `activated_at` datetime DEFAULT NULL,
+  `created_by` char(36) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `automation_enrollments`
+--
+
+CREATE TABLE `automation_enrollments` (
+  `id` char(36) NOT NULL,
+  `workspace_id` char(36) NOT NULL,
+  `automation_id` char(36) NOT NULL,
+  `contact_id` char(36) NOT NULL,
+  `next_step` int(11) NOT NULL DEFAULT 0,
+  `next_run_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `status` enum('active','completed','cancelled') NOT NULL DEFAULT 'active',
+  `sent_count` int(11) NOT NULL DEFAULT 0,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `last_error` varchar(480) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `automation_steps`
+--
+
+CREATE TABLE `automation_steps` (
+  `id` char(36) NOT NULL,
+  `automation_id` char(36) NOT NULL,
+  `position` int(11) NOT NULL DEFAULT 0,
+  `delay_minutes` int(11) NOT NULL DEFAULT 0,
+  `subject` varchar(255) NOT NULL,
+  `preview_text` varchar(255) DEFAULT NULL,
+  `html_content` mediumtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -134,6 +203,7 @@ CREATE TABLE `campaigns` (
 
 INSERT INTO `campaigns` (`id`, `workspace_id`, `name`, `subject`, `preview_text`, `html_content`, `design_json`, `template_id`, `sender_identity_id`, `audience`, `settings`, `status`, `scheduled_at`, `started_at`, `completed_at`, `total_recipients`, `sent_count`, `delivered_count`, `failed_count`, `bounced_count`, `complained_count`, `unsubscribed_count`, `unique_opens`, `total_opens`, `unique_clicks`, `total_clicks`, `created_by`, `deleted_at`, `created_at`, `updated_at`) VALUES
 ('1b60de77-d841-4c80-bbaa-0ba5cf583c20', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'September newsletter v2', 'Your September update is here. ', 'Plus a new feature we think you will like', '<!doctype html>\n<html>\n  <body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:32px 0;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;\">\n            <tr>\n              <td style=\"background:#4f46e5;padding:24px 32px;\">\n                <span style=\"color:#ffffff;font-size:20px;font-weight:bold;\">Welcome!</span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:32px;color:#1f2937;font-size:15px;line-height:1.6;\">\n                <p>Hi {{first_name | default: \"there\"}},</p>\n                <p>Thanks for signing up! We\'\'re glad to have you here. This is a good place to tell people what to expect next — your first steps, a quick tip, or a link to get set up.</p>\n\n                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px 0;\">\n                  <tr>\n                    <td style=\"background:#4f46e5;border-radius:6px;\">\n                      <a href=\"https://example.com/get-started\" style=\"display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;\">Get Started</a>\n                    </td>\n                  </tr>\n                </table>\n\n                <p>If you have any questions, just reply to this email — a real person will read it.</p>\n                <p>— The Team</p>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 32px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;\">\n                You\'\'re receiving this because you\'\'re subscribed to updates from us.<br/>\n                <a href=\"{{unsubscribe_url}}\" style=\"color:#9ca3af;\">Unsubscribe</a>\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>', NULL, 'aea63891-e442-4961-af1b-5da045b7ce75', 'c994e4e9-9d36-4a8c-8cf3-4553d5dd304d', '{\"mode\":\"lists\",\"listIds\":[\"f367712d-bef6-4ad3-87b7-720dc755b840\"]}', '{\"trackOpens\":true,\"trackClicks\":true,\"includeUnsubscribeLink\":true}', 'completed', NULL, '2026-09-09 10:18:38', '2026-09-09 10:18:41', 3, 3, 3, 0, 0, 0, 0, 0, 0, 1, 1, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', NULL, '2026-09-09 15:46:27', '2026-09-09 16:01:46'),
+('5f4f3546-f271-4937-8e99-c4fa685c1b90', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'September newsletter v3', 'Your September update is here. ', 'Plus a new feature we think you will like', '<!doctype html>\n<html>\n  <body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:32px 0;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;\">\n            <tr>\n              <td style=\"background:#4f46e5;padding:24px 32px;\">\n                <span style=\"color:#ffffff;font-size:20px;font-weight:bold;\">Welcome!</span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:32px;color:#1f2937;font-size:15px;line-height:1.6;\">\n                <p>Hi {{first_name | default: \"there\"}},</p>\n                <p>Thanks for signing up! We\'\'re glad to have you here. This is a good place to tell people what to expect next — your first steps, a quick tip, or a link to get set up.</p>\n\n                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px 0;\">\n                  <tr>\n                    <td style=\"background:#4f46e5;border-radius:6px;\">\n                      <a href=\"https://example.com/get-started\" style=\"display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;\">Get Started</a>\n                    </td>\n                  </tr>\n                </table>\n\n                <p>If you have any questions, just reply to this email — a real person will read it.</p>\n                <p>— The Team</p>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 32px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;\">\n                You\'\'re receiving this because you\'\'re subscribed to updates from us.<br/>\n                <a href=\"{{unsubscribe_url}}\" style=\"color:#9ca3af;\">Unsubscribe</a>\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>', NULL, 'aea63891-e442-4961-af1b-5da045b7ce75', 'c994e4e9-9d36-4a8c-8cf3-4553d5dd304d', '{\"mode\":\"lists\",\"listIds\":[\"f367712d-bef6-4ad3-87b7-720dc755b840\"]}', '{\"trackOpens\":true,\"trackClicks\":true,\"includeUnsubscribeLink\":true}', 'draft', NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', NULL, '2026-10-07 10:36:11', '2026-10-07 10:38:45'),
 ('b6844f88-c7a4-4cd1-82a9-fc999a4f8e14', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'September newsletter (copy)', 'Your September update is here. ', 'Plus a new feature we think you will like', '<!doctype html>\n<html>\n  <body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:32px 0;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;\">\n            <tr>\n              <td style=\"background:#4f46e5;padding:24px 32px;\">\n                <span style=\"color:#ffffff;font-size:20px;font-weight:bold;\">Welcome!</span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:32px;color:#1f2937;font-size:15px;line-height:1.6;\">\n                <p>Hi {{first_name | default: \"there\"}},</p>\n                <p>Thanks for signing up! We\'\'re glad to have you here. This is a good place to tell people what to expect next — your first steps, a quick tip, or a link to get set up.</p>\n\n                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px 0;\">\n                  <tr>\n                    <td style=\"background:#4f46e5;border-radius:6px;\">\n                      <a href=\"https://example.com/get-started\" style=\"display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;\">Get Started</a>\n                    </td>\n                  </tr>\n                </table>\n\n                <p>If you have any questions, just reply to this email — a real person will read it.</p>\n                <p>— The Team</p>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 32px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;\">\n                You\'\'re receiving this because you\'\'re subscribed to updates from us.<br/>\n                <a href=\"{{unsubscribe_url}}\" style=\"color:#9ca3af;\">Unsubscribe</a>\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>', NULL, 'aea63891-e442-4961-af1b-5da045b7ce75', 'c994e4e9-9d36-4a8c-8cf3-4553d5dd304d', '{\"mode\":\"lists\",\"listIds\":[\"f367712d-bef6-4ad3-87b7-720dc755b840\"]}', '{\"trackOpens\":true,\"trackClicks\":true,\"includeUnsubscribeLink\":true}', 'completed', NULL, '2026-09-09 09:56:35', '2026-09-09 09:56:38', 2, 2, 0, 0, 0, 0, 1, 0, 0, 1, 2, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', NULL, '2026-09-09 15:25:27', '2026-09-09 16:00:58'),
 ('e56170cb-ddc1-4eb7-8c5d-4f89f447d587', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'September newsletter', 'Your September update is here. ', 'Plus a new feature we think you will like', '<!doctype html>\n<html>\n  <body style=\"margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f5f7;padding:32px 0;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;\">\n            <tr>\n              <td style=\"background:#4f46e5;padding:24px 32px;\">\n                <span style=\"color:#ffffff;font-size:20px;font-weight:bold;\">Welcome!</span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:32px;color:#1f2937;font-size:15px;line-height:1.6;\">\n                <p>Hi {{first_name | default: \"there\"}},</p>\n                <p>Thanks for signing up! We\'\'re glad to have you here. This is a good place to tell people what to expect next — your first steps, a quick tip, or a link to get set up.</p>\n\n                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px 0;\">\n                  <tr>\n                    <td style=\"background:#4f46e5;border-radius:6px;\">\n                      <a href=\"https://example.com/get-started\" style=\"display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;\">Get Started</a>\n                    </td>\n                  </tr>\n                </table>\n\n                <p>If you have any questions, just reply to this email — a real person will read it.</p>\n                <p>— The Team</p>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 32px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;\">\n                You\'\'re receiving this because you\'\'re subscribed to updates from us.<br/>\n                <a href=\"{{unsubscribe_url}}\" style=\"color:#9ca3af;\">Unsubscribe</a>\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>', NULL, 'aea63891-e442-4961-af1b-5da045b7ce75', 'c994e4e9-9d36-4a8c-8cf3-4553d5dd304d', '{\"mode\":\"lists\",\"listIds\":[\"f367712d-bef6-4ad3-87b7-720dc755b840\"]}', '{\"trackOpens\":true,\"trackClicks\":true,\"includeUnsubscribeLink\":true}', 'completed', NULL, '2026-09-09 09:40:14', '2026-09-09 09:40:16', 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', NULL, '2026-09-09 15:08:42', '2026-09-09 15:10:16');
 
@@ -486,9 +556,13 @@ CREATE TABLE `refresh_tokens` (
 INSERT INTO `refresh_tokens` (`id`, `user_id`, `token_hash`, `expires_at`, `revoked_at`, `user_agent`, `ip`, `created_at`) VALUES
 ('0174c789-4056-44af-8a5f-f161b20ad6e8', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'daef7262f564ef40da5f38d576467dd632ceb2f43cb5ecb76a71c39bab5c6c57', '2026-10-09 06:07:50', '2026-09-09 06:08:00', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 11:37:50'),
 ('04bf3e33-9a46-417c-ad77-b7e43fae889f', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '46354660ba00575535ac26bb9a58e53e6371fab5f9394037f25fbec915658e18', '2026-10-09 09:46:40', '2026-09-09 10:01:50', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 15:16:40'),
+('0d141953-fe5b-428d-af20-5bd5214883ad', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'b08fb02e1a3192792dc5c216029776e38bc9c61dd2ea48f2ba7c5e1cca639f54', '2026-11-06 06:10:57', NULL, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '::1', '2026-10-07 11:40:57'),
 ('1103000b-f7ec-4267-9b98-ee8fc0066da7', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '499f72cea0ad43f86dd8868021af64bc6532220bcb078210792fe2333b8e01f7', '2026-10-09 10:03:21', '2026-09-09 10:18:24', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 15:33:21'),
+('247f3c78-671f-41c7-b8b9-0ce068c588e4', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'e5e15e79d179e82c4b6f8a8717b6dc5227f6fc640aeea3cddcbec59fd6c97e2e', '2026-10-10 10:29:17', '2026-09-10 11:06:21', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 15:59:17'),
 ('2e4b2770-c9a3-4d9a-8097-0011433677dc', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'b762e2f838ca4596fd68002ad75df7f0dc6c74d0f61e467b29fc14feba1ef973', '2026-10-09 11:33:51', '2026-09-09 12:21:57', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 17:03:51'),
 ('31e73ad0-1b10-48a8-a467-a6457f76a185', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'e0c84afe9f2ab964afb2d292813cc16f51317489af199a2dd57cfbe3a43fd9c2', '2026-10-09 10:34:10', '2026-09-09 10:49:58', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 16:04:10'),
+('3507b490-ca51-4fcd-9c08-bc037f107787', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '21ca11ecd4bc4343eb3c0c364a62ad12069d850f902375551eb3be358f9af090', '2026-10-10 07:41:30', '2026-09-10 09:43:09', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 13:11:30'),
+('372fa9e2-50d3-45b0-867d-baf0b5233964', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '3ea992b5094498ee206afcb308ccc7d85453e024ccb6358114d7a27bef356098', '2026-10-10 12:18:28', '2026-09-10 12:36:10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 17:48:28'),
 ('52d21d0d-860c-48f2-8d40-a9593067d06c', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '70022246796b4ead3a72d33f76a66db19eb9fd2aa0435d685dde0c826d51ce7e', '2026-10-09 06:29:21', '2026-09-09 07:06:44', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 11:59:21'),
 ('57123189-af16-472d-ac77-8b6fc8e13e0c', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'ed7e20099844c58b823b56ecfc8394ae9b9663f3a8ea898cc9f00284e9e6e85c', '2026-10-09 09:29:00', '2026-09-09 09:46:40', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 14:59:00'),
 ('650ca12f-9734-4626-83fa-f741a2dd61d9', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'c682df2f246aa62d3ed59820735f5a5bf1d01f8170ee37b5f028461b59310ab3', '2026-10-09 10:49:58', '2026-09-09 11:14:51', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 16:19:58'),
@@ -497,11 +571,20 @@ INSERT INTO `refresh_tokens` (`id`, `user_id`, `token_hash`, `expires_at`, `revo
 ('80536133-6093-433b-94e1-7c5fd5bf77a8', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '00edb4de9e9d2164c048390b5e88bbe5d2e8d8c0dfeef1a15978e268dab126fc', '2026-10-09 07:30:17', '2026-09-09 08:22:38', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 13:00:17'),
 ('8e4dd205-0f91-4dc6-b35f-23c7229ad970', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '9151ee0de3209b9895c1309d80e449e2bfadd7e896f8e57cfc7ed997e1661c98', '2026-10-09 08:22:38', '2026-09-09 09:08:03', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 13:52:38'),
 ('93061493-aac8-4049-bbfb-dbc9e83775aa', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '4042b0e46bf368d4aafc16375a206a6e0dfa02211e9a0b388e8bc67229e53c27', '2026-10-09 06:11:37', '2026-09-09 06:29:21', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 11:41:37'),
-('b15bd1a9-206b-4e70-90ff-6ea1d281f800', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'cefd4c94c24cdc7919ee3fea7ea18b5a072aa1061fe52f8d8f5364758060af42', '2026-10-09 12:21:57', NULL, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 17:51:57'),
+('9ed41b79-e27f-4cad-aa0f-8a2194f85669', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '2cdc06138a8a30aca2be5b96c7215d19cfb2f623aabff860be5830d0c9eaaad8', '2026-10-10 11:21:57', '2026-09-10 11:38:37', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 16:51:57'),
+('a775aaed-7ee0-4984-ba2b-69d60acc96ff', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '77ea66b9e9406718e9f876a3156fbb96b41d137f3afa2cc29757b6425a943c7b', '2026-10-10 12:36:10', NULL, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 18:06:10'),
+('aee9bf62-c1ee-4c7d-abed-b26623655c23', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '0dd1a058ad187c18d3e65e21e7c65f11de9c349101d164271549bcf8f291714e', '2026-11-06 05:03:26', '2026-10-07 05:44:58', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '::1', '2026-10-07 10:33:26'),
+('b15bd1a9-206b-4e70-90ff-6ea1d281f800', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'cefd4c94c24cdc7919ee3fea7ea18b5a072aa1061fe52f8d8f5364758060af42', '2026-10-09 12:21:57', '2026-09-10 05:47:47', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 17:51:57'),
 ('b174e673-7b41-418a-bb1b-7ca3e605d553', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '195c813026c3e9df34f32b7ae7c1b1c0afc5e1a0c216bb3f601963c544016cc0', '2026-10-09 06:13:37', NULL, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 11:43:37'),
+('b491145e-6e8e-44f7-8427-da3eaa3fc68e', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'd12b0449f371c2a3dfd389b4452e65293a43919e2b646fd6cf964faa7180b1bd', '2026-10-10 06:39:20', '2026-09-10 07:41:30', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 12:09:20'),
+('c132a1bd-d6e1-4549-85c0-e8558ca6a2d7', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '2d92f501cf618c4218ce7011ce0a6a7eab7a27ba79fe97a9b1d47e5782349f6f', '2026-10-10 05:47:47', '2026-09-10 06:39:20', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 11:17:47'),
+('da93114c-a346-43c3-95f4-fe47d91ab018', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'eef01bd67428c85e77cd8a4a24f03833dd405bd396a87d9b0065f35bc4ebcd4a', '2026-10-10 11:38:37', '2026-09-10 12:18:28', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 17:08:37'),
+('e1582ea5-7f5d-4451-b394-199922e74a71', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'aa20b97850bf4ca20b69885d1df3ff1ce3afbea0fbcbf66f8840cdd007b42154', '2026-11-06 05:44:58', '2026-10-07 06:10:57', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36', '::1', '2026-10-07 11:14:58'),
 ('eb760388-59c3-4751-85f2-6ecb75e341a1', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '7e73e8bd402a8d54473f14d8249be945278cbc22288b2c32ad78715cdd27c2b7', '2026-10-09 09:08:03', '2026-09-09 09:29:00', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 14:38:03'),
 ('ec855176-3b04-4118-a780-7304fa54ec42', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'f62e11ca9ac07a2aaf26e146209159727bf20bdad9e95bf389890bc3ce7bb008', '2026-10-09 10:18:24', '2026-09-09 10:34:10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 15:48:24'),
-('f8f42745-dd84-4acc-9e07-1cf329f1a84c', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'b0feb18c48a4f25610f5cca14813ea7f00b3654fbd3e0e94071f7c6558d3f046', '2026-10-09 11:14:51', '2026-09-09 11:33:51', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 16:44:51');
+('f8f42745-dd84-4acc-9e07-1cf329f1a84c', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'b0feb18c48a4f25610f5cca14813ea7f00b3654fbd3e0e94071f7c6558d3f046', '2026-10-09 11:14:51', '2026-09-09 11:33:51', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-09 16:44:51'),
+('fd350cc1-f760-4662-aefb-91c9c09b4a26', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '47c90907a12fa2519494ae6dc57288d3e5c857cc1bd8d7d569c013c9a6036af3', '2026-10-10 11:06:21', '2026-09-10 11:21:57', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 16:36:21'),
+('fe2526c4-c245-439b-9428-03c1bb1005e6', '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', '683278acbf24388d7b34a861c9816558e2a92be0b903524ab17636f7681d4eb1', '2026-10-10 09:43:09', '2026-09-10 10:29:17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', '::1', '2026-09-10 15:13:09');
 
 -- --------------------------------------------------------
 
@@ -548,7 +631,7 @@ CREATE TABLE `sender_domains` (
 --
 
 INSERT INTO `sender_domains` (`id`, `workspace_id`, `domain`, `provider`, `verification_status`, `verification_records`, `last_checked_at`, `verified_at`, `created_at`, `updated_at`, `dkim_selector`, `dkim_private_key_enc`) VALUES
-('b33c4660-5de8-4ad8-8531-68804321cdf0', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'hoverbusinessservices.in', 'smtp', 'verified', '[{\"type\":\"TXT\",\"host\":\"hoverbusinessservices.in\",\"value\":\"v=spf1 a mx ~all\",\"purpose\":\"spf\"},{\"type\":\"TXT\",\"host\":\"mailflow._domainkey.hoverbusinessservices.in\",\"value\":\"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDTuSdih0SGslblylYWHyribS3lItmcnL5H5Ex0092Bvlhe5NGJRHJa10wKrffbJ1lAgY5t/M4khgmDquBL4i0omwepgZTavXwFN7uBXpeC8hKEWrJP+zSjq8LK9CYjOYJ6p950xtqxpbG4WeSmFKiCijp8aGN9uap252MNN2fBbwIDAQAB\",\"purpose\":\"dkim\"},{\"type\":\"TXT\",\"host\":\"_dmarc.hoverbusinessservices.in\",\"value\":\"v=DMARC1; p=none; rua=mailto:dmarc@hoverbusinessservices.in\",\"purpose\":\"dmarc\"}]', '2026-09-09 11:34:15', '2026-09-09 11:34:15', '2026-09-09 15:29:28', '2026-09-09 17:04:15', 'mailflow', 'v1.1sp0vgC02AiLngx7.wo2P3G9LnMy2jmRYF30bMQ==.A+kNjiUe71dmTONbLHE9161eZ/gIJeZ/3ru+4kJtbTAyi/cjfZsDSYnv7Ez5YrdI3G6VNledycHsmRrI8OjQT5HLsJCCUBQYzAvRYCuhW/ns1ENOfmisgfZJzrR5GOhjU6yXZ1bvoOr+XhguavmD66Uc3Ysv9TMd6bzjv/WKO3SE5zDFra68vw+2wh2IgRC4LAMv2P3DL7xU3bivdyW7e5gMg7jzR5NLpmF/a4eDYBBkgAnMF2lT53LAgyai1fqE40EN732mGPi8qIyVu4OV0U4toezqFWx9iRCo3MH0qjTSvufqDDHqY54bGAzEhEyMpDyEwpzY0kl4Gb6CU8mKDvmr7Imq7nqVzh5zi9Z3CVKfCNtHG+9nPTRstgkcsoPNs9GsDYHntyMozofp4aJMxfs1uxRLTRnOVwewDmFkVfH2pBtGWd5dDj7P23xDkcmA7yRpylJloGx7WjeRNn1jh+PpXcX8Wa7jaeWGPxFIwUrgRS3VIXo9gGWeg/3s6DfY++eZ0leCPUSkhfggG5wKYQoUID3MOPHzy6dOGCGgA7aTzOb3vNbWzkygBETEyPQXDulCaRvWWblTl7IHDX5JToo6TuBC7CwKxZHO9CHKWm2BHEtGYwk+LOaeH1pAh5TWIjt22V7ITdmGcACM+qUMljh0sDGby/5vm2F0I7QsjoInjc8sibITfEoFKHdr4tiULVkjFMrK1eoxpAV690WmUpaRhmxofm3S8wBTx2tw3QP3h9HdJazD8tx/Wdk2nfOnA+oBIIFa2ljs3RQVwO71Acu99zC0wfxIyHgPX94Mn5JQy6kRfCtVct2ArlM0dOZiOry6bHKq4IvNPLIx8wJRxEW+YBgjH1zFQBIqW4MLwdHh7NA6sP+alFlHXWNejtGR4IX/tAYan04MPB6T7UDNweMwuUtqrZjCCLNgSlWASZYODtNc3HR0zcySmcKn1Ta0pOWhj/6yzehUA0WkSgdFmwpPyrzrR/oJTMTbrBXfWXttwW/ZnqEK2SczDUGYNPC+a8asSb8OE7FK12f/4EOW1j/CbQnPauafMeUOIms4HBIxQTV0hFb5EYnIN4YHFzrm8EXkVt+sPjE5955/demqYe6NTROaYa+t+tD8mBeb+zD6xH2dXqpEc1AkmjSWhIqLsZkhNq5A2H+5ExQSRXlw1lwHg3c5syZ9UrlVj2ncXJkyfoR7UzhxtnyiDEFo89nz');
+('b6cf557e-3ed0-4579-9c42-f96b4022b001', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', 'hoverbusinessservices.in', 'smtp', 'verified', '[{\"type\":\"TXT\",\"host\":\"hoverbusinessservices.in\",\"value\":\"v=spf1 a mx include:_spf.mail.hostinger.com ~all\",\"purpose\":\"spf\"},{\"type\":\"TXT\",\"host\":\"mailflow._domainkey.hoverbusinessservices.in\",\"value\":\"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC5GZBmWzMTJcY+cx1Dx2lhQOgjvVFl0+o3YXoR/iXYfbBC8MyM5wWvN0KEqxovQUChWNZ9GttfUNx30w174AAbLfYJ6f983gUYf9lQYkJNzoPbc4i6/5DW5gr8L/1erOvmeNeoRFAtx9IQncEFDw0GBsZevoRRdVWF/7MJGFTn9QIDAQAB\",\"purpose\":\"dkim\"},{\"type\":\"TXT\",\"host\":\"_dmarc.hoverbusinessservices.in\",\"value\":\"v=DMARC1; p=none; rua=mailto:dmarc@hoverbusinessservices.in\",\"purpose\":\"dmarc\"}]', '2026-10-07 05:03:57', '2026-10-07 05:03:57', '2026-09-10 18:11:50', '2026-10-07 10:33:57', 'mailflow', 'v1.oUGvSXUgB/Eo7iUQ.WTH74ZcvYXWRxXm7sThXJA==.n7jrTMfd+dR2LN90Kxaae+Q/FYtYawTSLOJL0I4LDWizvLLaBX+CI++NQ4bLBw90Q7/vaDcakXQcG4oGMHf8zHMRBlNBS65KVkGj1d/ob6HjHAQKO/+94HuNJFzRHZFFVdd+gJKYCzYThqaRo++bYtwM7PZLGVGXA+PWQGR7YvQwGI4x8ZedKRbTgbi8XhdodUdy5ZENQQbsWsDJ0T6bZdXCv+ElWSJCZbxraXOhokqaT00eqI3faJCJC99k5ftvAIcyegHrKKwLTz3p0HiGL34bvR32RHu+3m/uDIKMjxfuvpP1mCNNA72RmSdOimgm4osiX38ayuh7W6vrFZdtaUASDyUiHnrw+FVVfNAHjx2U35Iajv5/Lo7izfsto/RVieZZCphRCRtwWrZZ8ieQaIj6AjAwbNtR9ZSYeS7MygCN5d/fRAHlRSr+QBWn5aS/CddqiAXg7i8OTiGRsWWFfMqMHVu8R1hCnPzVw7pSgJej9A8HkrqDT9MmrlMszJnUBI+m8TOpzIsiwcRHwe/LoM3gJnoCSax+UQH8RhOTuzzxpSuoAjoc+1KDJCyAPqFSxPj3NyYu1FyQdtDsMc4877J4nxXYjMQDysigDDLji5tSVDlRHNC5Dw308KB1aQ3849Fv4Z1h5hY/8OXpg84VA+3gUqwMLoV9yE2dpZTNAm38VtVOwuWUe7eewvjpYoYM5sA15rO+8lmMbTB931bGYfyk3CjbPW0STJxrJVlEa1tvTPW1Xr1BTlHpYE2IUVR8lF9CFs1lDKRtVcixvPgnz576V6GYzOJNDAYwYSHf4xW45Nc2E2wtCjDRCsv82sWN/NdEZSsaEh6BDGQijFJq7vpgfYsFKgDrs1LmOihHElo45a+KWm+2oWUGjFVl+nsVw8GGuMN9uFwuLaWXxv0/hZJxKxZTDs2meis1JksPkirAPd+ZRaP7lkxiskJ9Z90EhbRwi+hM3XwKko2uxtXftbGx9BEgiQbga+USmta0N30iB9MONEYJ+baURrASu21M304Ikg0tE6ahQnbanW39tOy4tGYpsnIjhZ+ivqYBhEfROnVQqkpMJl/raVwIYb+rFdi0GBeqFnHUGjDKzYjD1akThTcTfQff0GmsQgJ86g99dgVvykBY4wEbb/gmxpfIAhvNH4LvVuUe/42Rzxw+WTTwpMcY4UcxKIZqX14iqA17XBg7EyfYUDCvZLV74xx/lc6KoA==');
 
 -- --------------------------------------------------------
 
@@ -728,7 +811,8 @@ CREATE TABLE `usage_periods` (
 --
 
 INSERT INTO `usage_periods` (`id`, `workspace_id`, `period`, `emails_sent`, `campaigns_created`, `contacts_imported`, `ai_calls`, `created_at`, `updated_at`) VALUES
-('13edbe6d-b27a-4429-8ce8-950dfb51ea3a', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '2026-09', 7, 1, 0, 2, '2026-09-09 11:42:05', '2026-09-09 15:48:41');
+('13edbe6d-b27a-4429-8ce8-950dfb51ea3a', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '2026-09', 7, 1, 0, 2, '2026-09-09 11:42:05', '2026-09-09 15:48:41'),
+('99a81702-9ff1-41a9-8ccd-cbcd69886272', '7f48eb2d-baf2-491e-9c8d-3d36b8970549', '2026-10', 0, 0, 0, 0, '2026-10-07 10:34:09', '2026-10-07 10:34:09');
 
 -- --------------------------------------------------------
 
@@ -752,15 +836,16 @@ CREATE TABLE `users` (
   `is_super_admin` tinyint(1) NOT NULL DEFAULT 0,
   `must_change_password` tinyint(1) NOT NULL DEFAULT 0,
   `created_by` char(36) DEFAULT NULL,
-  `admin_permissions` json DEFAULT NULL
+  `admin_permissions` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`admin_permissions`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `email`, `password_hash`, `first_name`, `last_name`, `email_verified`, `verification_token`, `reset_token`, `reset_token_expires_at`, `last_login_at`, `created_at`, `updated_at`, `is_super_admin`, `must_change_password`, `created_by`) VALUES
-('7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'hbsdevelopersteam@gmail.com', '$2b$12$EBRonLS.RAaHLHxhQTX3YucwtBjnXEUjlgP4uf1r0rVLmpqIh6g7C', 'Hover', 'Business', 1, '984bdd1ba5d56b5d8101276b47b53b745560b7a8719787c2', NULL, NULL, '2026-09-09 10:03:21', '2026-09-09 11:37:50', '2026-09-09 15:33:21', 1, 0, NULL);
+INSERT INTO `users` (`id`, `email`, `password_hash`, `first_name`, `last_name`, `email_verified`, `verification_token`, `reset_token`, `reset_token_expires_at`, `last_login_at`, `created_at`, `updated_at`, `is_super_admin`, `must_change_password`, `created_by`, `admin_permissions`) VALUES
+('7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', 'hbsdevelopersteam@gmail.com', '$2b$12$EBRonLS.RAaHLHxhQTX3YucwtBjnXEUjlgP4uf1r0rVLmpqIh6g7C', 'Hover', 'Business', 1, '984bdd1ba5d56b5d8101276b47b53b745560b7a8719787c2', NULL, NULL, '2026-10-07 05:03:26', '2026-09-09 11:37:50', '2026-10-07 10:33:26', 1, 0, NULL, NULL),
+('ae5cd4d4-0ff0-4d1e-9b58-ae0f39b03e48', 'mk@gmail.com', '$2b$12$b0ZQjr/.eprn5OnJ4lPKr.OCZDT64jEV/YpVY3l1rs5ac0HT6f.9C', 'Hover', 'Business', 1, NULL, NULL, NULL, NULL, '2026-09-10 16:01:33', '2026-09-10 16:01:43', 0, 1, '7d4ec52b-3ce2-4b5a-8216-4bbcc18c3f9c', NULL);
 
 -- --------------------------------------------------------
 
@@ -843,6 +928,28 @@ ALTER TABLE `api_keys`
 ALTER TABLE `audit_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_al_ws` (`workspace_id`,`created_at`);
+
+--
+-- Indexes for table `automations`
+--
+ALTER TABLE `automations`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_auto_ws_status` (`workspace_id`,`status`);
+
+--
+-- Indexes for table `automation_enrollments`
+--
+ALTER TABLE `automation_enrollments`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_ae_auto_contact` (`automation_id`,`contact_id`),
+  ADD KEY `idx_ae_due` (`status`,`next_run_at`);
+
+--
+-- Indexes for table `automation_steps`
+--
+ALTER TABLE `automation_steps`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_as_auto` (`automation_id`,`position`);
 
 --
 -- Indexes for table `campaigns`

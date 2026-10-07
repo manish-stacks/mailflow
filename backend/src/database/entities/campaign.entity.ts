@@ -10,6 +10,7 @@ export interface CampaignSettings {
   trackClicks?: boolean;
   includeUnsubscribeLink?: boolean;
   replyTo?: string;
+  subjectB?: string;
 }
 
 export interface CampaignAudience {

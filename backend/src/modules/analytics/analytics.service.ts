@@ -15,6 +15,29 @@ export class AnalyticsService {
   ) {}
 
   /** Dashboard KPI cards. */
+  /**
+   * Best hours to send, learned from this workspace's own opens (weight 1) and clicks (weight 3) over 180 days.
+   * Returns UTC day-of-week (0=Sun) and hour; the browser converts to the viewer's local time.
+   */
+  async bestSendTime(workspaceId: string) {
+    const rows = await this.events.createQueryBuilder('e').select('e.createdAt', 'at').addSelect('e.eventType', 'type')
+      .where('e.workspace_id = :workspaceId', { workspaceId })
+      .andWhere("e.event_type IN ('opened','clicked')")
+      .andWhere('e.created_at >= :since', { since: new Date(Date.now() - 180 * 864e5) })
+      .orderBy('e.created_at', 'DESC').limit(20000).getRawMany();
+    const score = new Map<string, number>();
+    let total = 0;
+    for (const r of rows) {
+      const d = new Date(r.at);
+      const w = r.type === 'clicked' ? 3 : 1;
+      const k = `${d.getUTCDay()}:${d.getUTCHours()}`;
+      score.set(k, (score.get(k) || 0) + w); total += w;
+    }
+    const slots = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([k, s]) => { const [dow, hour] = k.split(':').map(Number); return { dow, hour, score: s }; });
+    return { basedOn: total >= 30 ? 'workspace' : 'default', sampleSize: rows.length, slots: total >= 30 ? slots : [] };
+  }
+
   async overview(workspaceId: string, days = 30) {
     const [contacts] = await this.db.query(
       `SELECT COUNT(*) AS total,

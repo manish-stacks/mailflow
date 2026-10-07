@@ -40,8 +40,19 @@ export default function TemplatesPage() {
     mutationFn: () => api.post<EmailTemplate>('/templates', {
       name: 'Untitled template', category: 'general', subject: '', htmlContent: STARTER_HTML,
     }),
-    onSuccess: (t) => router.push(`/templates/${t.id}`),
+    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['templates'] }); router.push(`/templates/${t.id}`); },
     onError: (e: any) => toast.error('Could not create template', e.message),
+  });
+
+  const starters = useQuery({
+    queryKey: ['template-starters'],
+    queryFn: () => api.get<{ key: string; name: string; category: string; subject: string; html: string }[]>('/templates/starters'),
+    staleTime: 600_000,
+  });
+  const useStarter = useMutation({
+    mutationFn: (key: string) => api.post<EmailTemplate>(`/templates/from-starter/${key}`),
+    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['templates'] }); toast.success('Template added to your library'); router.push(`/templates/${t.id}`); },
+    onError: (e: any) => toast.error('Could not add template', e.message),
   });
 
   const duplicate = useMutation({
@@ -107,6 +118,31 @@ export default function TemplatesPage() {
             ))}
           </div>
         )}
+
+      {canEdit(role) && !!starters.data?.length && (
+        <div className="space-y-3 pt-2">
+          <div>
+            <h2 className="text-lg font-semibold">Starter library</h2>
+            <p className="text-sm text-muted-foreground">Professionally structured, mobile-friendly templates. Add one to your library and customise it.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {starters.data.map((s) => (
+              <Card key={s.key} className="overflow-hidden">
+                <div className="h-40 border-b border-border bg-muted/40">
+                  <iframe title={s.name} srcDoc={s.html} sandbox="" className="pointer-events-none h-[400px] w-[700px] origin-top-left scale-[0.4] bg-white" />
+                </div>
+                <CardContent className="flex items-center justify-between gap-2 p-4">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{s.name}</p>
+                    <Badge variant="secondary">{s.category}</Badge>
+                  </div>
+                  <Button size="sm" variant="outline" loading={useStarter.isPending && useStarter.variables === s.key} onClick={() => useStarter.mutate(s.key)}>Use</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!deleteId} onOpenChange={() => setDeleteId(null)}

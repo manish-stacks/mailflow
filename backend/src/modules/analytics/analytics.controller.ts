@@ -12,6 +12,9 @@ export class AnalyticsController {
   @Get('overview')
   overview(@WorkspaceId() ws: string, @Query('days') days = '30') { return this.svc.overview(ws, +days || 30); }
 
+  @Get('best-send-time')
+  best(@WorkspaceId() ws: string) { return this.svc.bestSendTime(ws); }
+
   @Get('timeseries')
   timeseries(@WorkspaceId() ws: string, @Query('days') days = '30') { return this.svc.timeseries(ws, +days || 30); }
 
