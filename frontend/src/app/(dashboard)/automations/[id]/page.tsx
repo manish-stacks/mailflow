@@ -19,6 +19,7 @@ interface StepForm { uid: string; ver: number; delayValue: number; unit: 'minute
 const MULT = { minutes: 1, hours: 60, days: 1440 } as const;
 const toForm = (m: number): Pick<StepForm, 'delayValue' | 'unit'> =>
   m > 0 && m % 1440 === 0 ? { delayValue: m / 1440, unit: 'days' } : m > 0 && m % 60 === 0 ? { delayValue: m / 60, unit: 'hours' } : { delayValue: m, unit: 'minutes' };
+interface AutoStats { enrolled: number; active: number; completed: number; cancelled: number; sent: number; uniqueOpens: number; uniqueClicks: number; steps: { position: number; sent: number; opens: number; clicks: number; openRate: number; clickRate: number }[] }
 const newUid = () => Math.random().toString(36).slice(2, 10);
 const blank = (): StepForm => ({ uid: newUid(), ver: 0, delayValue: 1, unit: 'days', subject: '', previewText: '', htmlContent: '' });
 
@@ -33,7 +34,7 @@ export default function AutomationEditor() {
   const lists = useQuery({ queryKey: ['lists', wsId], queryFn: () => api.get<ContactList[]>('/lists'), enabled: !!wsId });
   const senders = useQuery({ queryKey: ['senders', wsId], queryFn: () => api.get<SenderIdentity[]>('/senders'), enabled: !!wsId });
   const templates = useQuery({ queryKey: ['templates', wsId, 'picker'], queryFn: () => api.list<EmailTemplate>('/templates', { limit: 100 }), enabled: !!wsId });
-  const stats = useQuery({ queryKey: ['automation-stats', id], queryFn: () => api.get<Record<string, number>>(`/automations/${id}/stats`), refetchInterval: 30_000 });
+  const stats = useQuery({ queryKey: ['automation-stats', id], queryFn: () => api.get<AutoStats>(`/automations/${id}/stats`), refetchInterval: 30_000 });
 
   const [name, setName] = useState('');
   const [trigger, setTrigger] = useState<'list_join' | 'contact_created'>('list_join');
@@ -106,7 +107,7 @@ export default function AutomationEditor() {
 
       {stats.data && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {([['Enrolled', 'enrolled'], ['Active', 'active'], ['Completed', 'completed'], ['Stopped', 'cancelled'], ['Emails sent', 'sent']] as const).map(([l, k]) => (
+          {([['Enrolled', 'enrolled'], ['Completed', 'completed'], ['Emails sent', 'sent'], ['Unique opens', 'uniqueOpens'], ['Unique clicks', 'uniqueClicks']] as const).map(([l, k]) => (
             <Card key={k}><CardContent className="p-4"><p className="text-xs text-muted-foreground">{l}</p><p className="text-xl font-semibold">{stats.data![k] ?? 0}</p></CardContent></Card>
           ))}
         </div>
@@ -145,6 +146,9 @@ export default function AutomationEditor() {
               {open === i ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{i + 1}</span>
               <span className="flex-1 truncate font-medium">{s.subject || 'Untitled email'}</span>
+              {stats.data?.steps?.[i] && stats.data.steps[i].sent > 0 && (
+                <span className="hidden text-xs text-muted-foreground sm:inline">{stats.data.steps[i].sent} sent · {stats.data.steps[i].openRate}% opened · {stats.data.steps[i].clickRate}% clicked</span>
+              )}
               <span className="text-xs text-muted-foreground">{i === 0 ? 'Wait' : 'Then wait'} {s.delayValue} {s.unit}</span>
             </button>
             {open === i && (

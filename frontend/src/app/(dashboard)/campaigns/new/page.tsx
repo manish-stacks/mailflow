@@ -36,7 +36,7 @@ const STEPS = [
 ];
 
 interface Draft {
-  name: string; subject: string; subjectB: string; previewText: string;
+  name: string; subject: string; subjectB: string; abAuto: boolean; abPercent: number; abHours: number; abMetric: 'opens' | 'clicks'; previewText: string;
   mode: 'all' | 'lists' | 'segments';
   listIds: string[]; segmentIds: string[];
   senderIdentityId: string; templateId: string; htmlContent: string;
@@ -44,7 +44,7 @@ interface Draft {
 }
 
 const EMPTY: Draft = {
-  name: '', subject: '', subjectB: '', previewText: '', mode: 'all', listIds: [], segmentIds: [],
+  name: '', subject: '', subjectB: '', abAuto: false, abPercent: 20, abHours: 4, abMetric: 'opens', previewText: '', mode: 'all', listIds: [], segmentIds: [],
   senderIdentityId: '', templateId: '', htmlContent: '',
   trackOpens: true, trackClicks: true, includeUnsubscribeLink: true, replyTo: '',
 };
@@ -110,7 +110,7 @@ function Wizard() {
     if (!existing.data) return;
     const c = existing.data;
     setDraft({
-      name: c.name, subject: c.subject || '', subjectB: c.settings?.subjectB || '', previewText: c.previewText || '',
+      name: c.name, subject: c.subject || '', subjectB: c.settings?.subjectB || '', abAuto: !!c.settings?.abAutoWinner?.enabled, abPercent: c.settings?.abAutoWinner?.testPercent ?? 20, abHours: c.settings?.abAutoWinner?.waitHours ?? 4, abMetric: c.settings?.abAutoWinner?.metric ?? 'opens', previewText: c.previewText || '',
       mode: c.audience?.mode || 'all',
       listIds: c.audience?.listIds || [],
       segmentIds: c.audience?.segmentIds || [],
@@ -149,6 +149,7 @@ function Wizard() {
       includeUnsubscribeLink: draft.includeUnsubscribeLink,
       replyTo: draft.replyTo || undefined,
       subjectB: draft.subjectB.trim() || undefined,
+      abAutoWinner: draft.subjectB.trim() && draft.abAuto ? { enabled: true, testPercent: draft.abPercent, waitHours: draft.abHours, metric: draft.abMetric } : undefined,
     },
   });
 
@@ -275,6 +276,34 @@ function Wizard() {
             <Field label="Subject line B (optional A/B test)" hint="Half of your audience gets subject A, half gets B. Compare open rates on the campaign page after sending.">
               <Input value={draft.subjectB} onChange={(e) => set({ subjectB: e.target.value })} placeholder="Try a different angle, e.g. a question or a number" />
             </Field>
+            {draft.subjectB.trim() && (
+              <div className="rounded-lg border border-border p-4">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={draft.abAuto} onChange={(e) => set({ abAuto: e.target.checked })} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+                  Auto-send the winner to the rest of my audience
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground">Only a small test group gets A/B first. After the wait time, the better subject is sent to everyone else automatically.</p>
+                {draft.abAuto && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <Field label="Test group">
+                      <Select value={String(draft.abPercent)} onChange={(e) => set({ abPercent: +e.target.value })}>
+                        {[10, 20, 30, 40, 50].map((n) => <option key={n} value={n}>{n}% of audience</option>)}
+                      </Select>
+                    </Field>
+                    <Field label="Wait before picking">
+                      <Select value={String(draft.abHours)} onChange={(e) => set({ abHours: +e.target.value })}>
+                        {[1, 2, 4, 8, 12, 24, 48].map((n) => <option key={n} value={n}>{n} hour{n > 1 ? 's' : ''}</option>)}
+                      </Select>
+                    </Field>
+                    <Field label="Winner decided by">
+                      <Select value={draft.abMetric} onChange={(e) => set({ abMetric: e.target.value as any })}>
+                        <option value="opens">Open rate</option><option value="clicks">Click rate</option>
+                      </Select>
+                    </Field>
+                  </div>
+                )}
+              </div>
+            )}
             <Field label="Preview text" hint="The snippet shown next to the subject in the inbox.">
               <Input value={draft.previewText} onChange={(e) => set({ previewText: e.target.value })} placeholder="Plus a new feature we think you will like" />
             </Field>

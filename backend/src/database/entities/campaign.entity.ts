@@ -11,6 +11,11 @@ export interface CampaignSettings {
   includeUnsubscribeLink?: boolean;
   replyTo?: string;
   subjectB?: string;
+  /** Send subjects A/B to a small test group, then send the winner to everyone else automatically. */
+  abAutoWinner?: { enabled: boolean; testPercent: number; waitHours: number; metric: 'opens' | 'clicks' };
+  /** Set by the server only. */
+  abWinner?: 'A' | 'B';
+  abDecidedAt?: string;
 }
 
 export interface CampaignAudience {

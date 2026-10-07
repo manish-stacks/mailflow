@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 07, 2026 at 08:11 AM
+-- Generation Time: Oct 07, 2026 at 12:33 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -138,6 +138,24 @@ CREATE TABLE `automation_enrollments` (
   `last_error` varchar(480) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `automation_events`
+--
+
+CREATE TABLE `automation_events` (
+  `id` char(36) NOT NULL,
+  `workspace_id` char(36) NOT NULL,
+  `automation_id` char(36) NOT NULL,
+  `enrollment_id` char(36) NOT NULL,
+  `contact_id` char(36) NOT NULL,
+  `step_position` int(11) NOT NULL DEFAULT 0,
+  `event_type` enum('opened','clicked') NOT NULL,
+  `url` varchar(2048) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -943,6 +961,14 @@ ALTER TABLE `automation_enrollments`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_ae_auto_contact` (`automation_id`,`contact_id`),
   ADD KEY `idx_ae_due` (`status`,`next_run_at`);
+
+--
+-- Indexes for table `automation_events`
+--
+ALTER TABLE `automation_events`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_aev_auto` (`automation_id`,`event_type`,`step_position`),
+  ADD KEY `idx_aev_enroll` (`enrollment_id`);
 
 --
 -- Indexes for table `automation_steps`

@@ -5,6 +5,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Automation, AutomationStep, ContactList } from '@/database/entities';
 import { EmailService } from '@/integrations/email/email.service';
 import { applyUnsubscribe, htmlToText, renderMergeTags, unsubscribeUrl } from '@/integrations/email/renderer';
+import { signToken } from '@/common/tokens';
 import { BillingService } from '@/modules/billing/billing.service';
 import { SendersService } from '@/modules/senders/senders.service';
 import { SaveAutomationDto } from './dto';
@@ -58,7 +59,25 @@ export class AutomationsService {
       `SELECT COUNT(*) AS enrolled, SUM(status='active') AS active, SUM(status='completed') AS completed,
               SUM(status='cancelled') AS cancelled, COALESCE(SUM(sent_count),0) AS sent
          FROM automation_enrollments WHERE automation_id = ? AND workspace_id = ?`, [id, ws]);
-    return Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v || 0)]));
+    const num = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v || 0)])) as Record<string, number>;
+    const [ev] = await this.db.query(
+      `SELECT COUNT(DISTINCT CASE WHEN event_type='opened' THEN enrollment_id END) AS uniqueOpens,
+              COUNT(DISTINCT CASE WHEN event_type='clicked' THEN enrollment_id END) AS uniqueClicks
+         FROM automation_events WHERE automation_id = ?`, [id]);
+    const perStep = await this.db.query(
+      `SELECT step_position AS pos, COUNT(DISTINCT CASE WHEN event_type='opened' THEN enrollment_id END) AS opens,
+              COUNT(DISTINCT CASE WHEN event_type='clicked' THEN enrollment_id END) AS clicks
+         FROM automation_events WHERE automation_id = ? GROUP BY step_position`, [id]);
+    const sentPer = await this.db.query(
+      `SELECT p.position AS pos, COUNT(e.id) AS sent FROM automation_steps p
+         LEFT JOIN automation_enrollments e ON e.automation_id = p.automation_id AND e.sent_count > p.position
+        WHERE p.automation_id = ? GROUP BY p.position ORDER BY p.position`, [id]);
+    const steps = sentPer.map((s: any) => {
+      const x = perStep.find((r: any) => Number(r.pos) === Number(s.pos));
+      const sent = Number(s.sent || 0), opens = Number(x?.opens || 0), clicks = Number(x?.clicks || 0);
+      return { position: Number(s.pos), sent, opens, clicks, openRate: sent ? +(opens / sent * 100).toFixed(1) : 0, clickRate: sent ? +(clicks / sent * 100).toFixed(1) : 0 };
+    });
+    return { ...num, uniqueOpens: Number(ev?.uniqueOpens || 0), uniqueClicks: Number(ev?.uniqueClicks || 0), steps };
   }
 
   private async validateRefs(ws: string, dto: SaveAutomationDto) {
@@ -202,7 +221,7 @@ export class AutomationsService {
       secret: this.config.get('trackingSecret'), appBaseUrl: this.config.get('appBaseUrl'),
       recipientId: enrollmentId, workspaceId: a.workspaceId, contactId: c.id,
     });
-    const html = applyUnsubscribe(renderMergeTags(step.htmlContent || '', vars), unsub);
+    const html = this.addTracking(applyUnsubscribe(this.trackLinks(renderMergeTags(step.htmlContent || '', vars), a.id, enrollmentId, e.next_step), unsub), a.id, enrollmentId, e.next_step);
 
     const res = await this.email.send({
       workspaceId: a.workspaceId, to: c.email, subject: renderMergeTags(step.subject, vars), html, text: htmlToText(html),
@@ -220,6 +239,21 @@ export class AutomationsService {
     } else {
       await this.db.query(`UPDATE automation_enrollments SET status='completed', sent_count = sent_count + 1, attempts = 0, last_error = NULL WHERE id = ?`, [enrollmentId]);
     }
+  }
+
+  /** Rewrites http(s) links to signed click-tracking URLs (the destination is part of the signed token). */
+  private trackLinks(html: string, automationId: string, enrollmentId: string, pos: number) {
+    const secret = this.config.get('trackingSecret'); const base = this.config.get('trackingBaseUrl');
+    return html.replace(/href\s*=\s*["'](https?:\/\/[^"']+)["']/gi, (m, url: string) => {
+      if (url.includes('/tracking/') || url.includes('/unsubscribe/') || url.length > 1500) return m;
+      return `href="${base}/tracking/click/${signToken({ a: automationId, e: enrollmentId, p: pos, u: url.replace(/&amp;/g, '&') }, secret)}"`;
+    });
+  }
+
+  private addTracking(html: string, automationId: string, enrollmentId: string, pos: number) {
+    const token = signToken({ a: automationId, e: enrollmentId, p: pos }, this.config.get('trackingSecret'));
+    const pixel = `<img src="${this.config.get('trackingBaseUrl')}/tracking/open/${token}" width="1" height="1" alt="" style="display:block;border:0;" />`;
+    return html.includes('</body>') ? html.replace('</body>', `${pixel}</body>`) : html + pixel;
   }
 
   private async fail(enrollmentId: string, error: string, retryable: boolean) {

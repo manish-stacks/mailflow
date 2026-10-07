@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Campaign, CampaignEvent, CampaignRecipient, Contact, TrackedLink } from '@/database/entities';
 import { verifyToken } from '@/common/tokens';
 
@@ -19,11 +19,23 @@ export class TrackingService {
     @InjectRepository(TrackedLink) private links: Repository<TrackedLink>,
     @InjectRepository(Contact) private contacts: Repository<Contact>,
     private config: ConfigService,
+    private db: DataSource,
   ) {}
 
+  /** Automation tokens carry `a` (automation id). The destination URL is inside the signed token, so it cannot be tampered with. */
+  private async automationEvent(p: { a: string; e: string; p: number; u?: string }, type: 'opened' | 'clicked') {
+    const [enr] = await this.db.query(`SELECT workspace_id, contact_id FROM automation_enrollments WHERE id = ? AND automation_id = ?`, [p.e, p.a]);
+    if (!enr) return;
+    await this.db.query(
+      `INSERT INTO automation_events (id, workspace_id, automation_id, enrollment_id, contact_id, step_position, event_type, url) VALUES (UUID(),?,?,?,?,?,?,?)`,
+      [enr.workspace_id, p.a, p.e, enr.contact_id, Number(p.p) || 0, type, type === 'clicked' ? (p.u || '').slice(0, 2048) : null]);
+    await this.db.query(`UPDATE contacts SET last_engaged_at = NOW() WHERE id = ?`, [enr.contact_id]);
+  }
+
   async open(token: string, meta: { ip?: string; userAgent?: string }) {
-    const payload = verifyToken<{ r: string; c: string }>(token, this.config.get('trackingSecret'));
+    const payload = verifyToken<{ r: string; c: string; a?: string; e?: string; p?: number }>(token, this.config.get('trackingSecret'));
     if (!payload) return;
+    if (payload.a) return this.automationEvent(payload as any, 'opened');
 
     const recipient = await this.recipients.findOne({ where: { id: payload.r, campaignId: payload.c } });
     if (!recipient) return;
@@ -51,8 +63,13 @@ export class TrackingService {
 
   /** Returns the destination URL only when it matches a link stored at prepare time. */
   async click(token: string, meta: { ip?: string; userAgent?: string }): Promise<string | null> {
-    const payload = verifyToken<{ r: string; c: string; l: string }>(token, this.config.get('trackingSecret'));
+    const payload = verifyToken<{ r: string; c: string; l: string; a?: string; e?: string; p?: number; u?: string }>(token, this.config.get('trackingSecret'));
     if (!payload) return null;
+    if (payload.a) {
+      if (!payload.u || !/^https?:\/\//i.test(payload.u)) return null;
+      await this.automationEvent(payload as any, 'clicked').catch(() => null);
+      return payload.u;
+    }
 
     const link = await this.links.findOne({ where: { id: payload.l, campaignId: payload.c } });
     if (!link) return null; // no open-redirect: unknown links go nowhere

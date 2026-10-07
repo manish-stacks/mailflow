@@ -1,3 +1,4 @@
+import { abStats, abThreshold, inTestGroup } from './ab.util';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -95,6 +96,8 @@ export class CampaignsService {
       dto.designJson = dto.designJson ?? t.designJson;
     }
     if (dto.senderIdentityId && dto.senderIdentityId !== c.senderIdentityId) await this.assertSenderExists(workspaceId, dto.senderIdentityId);
+    // The winner is decided by the server — an edit must never wipe or forge it.
+    if (dto.settings && c.settings?.abWinner) (dto as any).settings = { ...dto.settings, abWinner: c.settings.abWinner, abDecidedAt: c.settings.abDecidedAt };
     await this.campaigns.update(id, dto as any);
     return this.findOne(workspaceId, id);
   }
@@ -178,7 +181,9 @@ export class CampaignsService {
     const { count } = await this.resolveAudience(workspaceId, c, true);
     if (!count) issues.push('The selected audience contains no sendable contacts');
 
-    return { valid: issues.length === 0, issues, warnings: this.lint(c), estimatedRecipients: count };
+    const warnings = this.lint(c);
+    if (abThreshold(c.settings) !== null && count < 200) warnings.push('Auto-winner works best with 200+ recipients — with a small audience the test group is too small to be meaningful');
+    return { valid: issues.length === 0, issues, warnings, estimatedRecipients: count };
   }
 
   /** Non-blocking deliverability / quality hints shown on the review step. */
@@ -210,21 +215,23 @@ export class CampaignsService {
   async abResults(workspaceId: string, id: string) {
     const c = await this.findOne(workspaceId, id);
     if (!c.settings?.subjectB) return { enabled: false, variants: [] };
-    const rows = await this.recipients.query(
-      `SELECT CONV(RIGHT(id,1),16,10) % 2 AS v, COUNT(*) AS total,
-              SUM(status IN ('sent','delivered')) AS sent, SUM(open_count > 0) AS opened, SUM(click_count > 0) AS clicked
-         FROM campaign_recipients WHERE campaign_id = ? AND workspace_id = ? GROUP BY v`, [id, workspaceId]);
-    const pick = (v: number) => rows.find((r: any) => Number(r.v) === v) || {};
-    const mk = (label: string, subject: string, r: any) => {
-      const sent = Number(r.sent || 0);
-      return { label, subject, recipients: Number(r.total || 0), sent, opened: Number(r.opened || 0), clicked: Number(r.clicked || 0),
-        openRate: sent ? +(Number(r.opened || 0) / sent * 100).toFixed(1) : 0,
-        clickRate: sent ? +(Number(r.clicked || 0) / sent * 100).toFixed(1) : 0 };
-    };
-    const a = mk('A', c.subject || c.name, pick(0));
-    const b = mk('B', c.settings.subjectB, pick(1));
-    const winner = a.sent < 20 || b.sent < 20 ? null : a.openRate === b.openRate ? null : a.openRate > b.openRate ? 'A' : 'B';
-    return { enabled: true, variants: [a, b], winner, note: winner ? undefined : 'Not enough data yet for a clear winner (needs 20+ sends per variant).' };
+    const T = abThreshold(c.settings);
+    const { a, b } = await abStats(this.dataSource, id, workspaceId, T);
+    const va = { label: 'A', subject: c.subject || c.name, ...a };
+    const vb = { label: 'B', subject: c.settings.subjectB, ...b };
+    if (T !== null) {
+      const cfg = c.settings.abAutoWinner!;
+      const decided = c.settings.abWinner;
+      const m = cfg.metric === 'clicks' ? 'click' : 'open';
+      return {
+        enabled: true, auto: true, variants: [va, vb], winner: decided ?? null,
+        note: decided
+          ? `Auto-winner: Subject ${decided} was picked by ${m} rate and sent to the rest of your audience.`
+          : `Test phase: ${cfg.testPercent}% of your audience is receiving A/B. The winner (by ${m} rate) is picked automatically ${cfg.waitHours}h after the test finishes and sent to everyone else.`,
+      };
+    }
+    const winner = va.sent < 20 || vb.sent < 20 ? null : va.openRate === vb.openRate ? null : va.openRate > vb.openRate ? 'A' : 'B';
+    return { enabled: true, variants: [va, vb], winner, note: winner ? undefined : 'Not enough data yet for a clear winner (needs 20+ sends per variant).' };
   }
 
   /** Save the campaign's current content as a reusable template. */
@@ -283,7 +290,10 @@ export class CampaignsService {
     const c = await this.findOne(workspaceId, id);
     if (c.status !== 'paused') throw new BadRequestException('Only a paused campaign can be resumed');
 
-    const pending = await this.recipients.find({ where: { campaignId: id, status: In(['pending', 'queued']) }, take: 50000 });
+    let pending = await this.recipients.find({ where: { campaignId: id, status: In(['pending', 'queued']) }, take: 50000 });
+    // Auto-winner A/B still in its test phase: never release the held-back audience early.
+    const abT = abThreshold(c.settings);
+    if (abT !== null && !c.settings?.abWinner) pending = pending.filter((r) => inTestGroup(r.id, abT));
     await this.campaigns.update(id, { status: 'sending' });
     if (pending.length) {
       await this.queue.addBulk(QUEUES.EMAIL_SENDING, pending.map((r) => ({

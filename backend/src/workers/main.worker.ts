@@ -30,7 +30,10 @@ async function bootstrap() {
 
   // Drip automations: enroll new contacts and send due steps once a minute.
   const automations = app.get(AutomationsService);
-  const automationTimer = setInterval(() => automations.tick().catch((e) => logger.error(`automations tick: ${e.message}`)), 60_000);
+  const automationTimer = setInterval(() => {
+    automations.tick().catch((e) => logger.error(`automations tick: ${e.message}`));
+    app.get(CampaignDispatchService).resolveAbWinners().catch((e) => logger.error(`ab winners: ${e.message}`));
+  }, 60_000);
   automations.tick().catch(() => null);
 
   const workers: Worker[] = [

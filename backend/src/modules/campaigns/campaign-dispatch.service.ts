@@ -1,3 +1,4 @@
+import { abStats, abThreshold, inTestGroup, isVariantB } from './ab.util';
 import { Injectable, Logger } from '@nestjs/common';
 import { BillingService } from '@/modules/billing/billing.service';
 import { ConfigService } from '@nestjs/config';
@@ -91,11 +92,16 @@ export class CampaignDispatchService {
         `SELECT id FROM campaign_recipients WHERE campaign_id = ? AND status = 'pending' LIMIT ? OFFSET ?`,
         [campaignId, batchSize, offset]);
 
-      await this.queue.addBulk(QUEUES.EMAIL_SENDING, rows.map((r: any) => ({
-        name: 'send', data: { recipientId: r.id, campaignId, workspaceId },
-      })));
-      await this.recipients.createQueryBuilder().update()
-        .set({ status: 'queued' }).whereInIds(rows.map((r: any) => r.id)).execute();
+      // Auto-winner A/B: only the test group is queued now; the rest wait (status 'pending') for resolveAbWinners().
+      const abT = abThreshold(campaign.settings);
+      const toQueue = abT === null ? rows : rows.filter((r: any) => inTestGroup(r.id, abT));
+      if (toQueue.length) {
+        await this.queue.addBulk(QUEUES.EMAIL_SENDING, toQueue.map((r: any) => ({
+          name: 'send', data: { recipientId: r.id, campaignId, workspaceId },
+        })));
+        await this.recipients.createQueryBuilder().update()
+          .set({ status: 'queued' }).whereInIds(toQueue.map((r: any) => r.id)).execute();
+      }
 
       total += batch.length;
       offset += batchSize;
@@ -137,7 +143,10 @@ export class CampaignDispatchService {
 
     const html = await this.renderFor(campaign, recipient, contact, workspaceId);
     // A/B subject test: deterministic 50/50 split on the recipient id's last hex digit (matches abResults SQL).
-    const variantB = !!campaign.settings?.subjectB && parseInt(recipient.id.slice(-1), 16) % 2 === 1;
+    const abT = abThreshold(campaign.settings);
+    const variantB = !!campaign.settings?.subjectB && (abT !== null && !inTestGroup(recipient.id, abT)
+      ? campaign.settings.abWinner === 'B'   // outside the test group: the winner (or A if none yet)
+      : isVariantB(recipient.id));
     const rawSubject = variantB ? campaign.settings!.subjectB! : (campaign.subject || campaign.name);
     const subject = renderMergeTags(rawSubject, this.contactVars(contact));
 
@@ -204,6 +213,44 @@ export class CampaignDispatchService {
 
     await this.maybeComplete(campaignId);
     return true;
+  }
+
+  /** Runs every minute in the worker. Once a test group has been sent and the wait time has passed, picks the winning
+   *  subject and queues the rest of the audience with it. Safe on several workers: the winner is set with a conditional update. */
+  async resolveAbWinners() {
+    const sending = await this.campaigns.find({ where: { status: 'sending' } });
+    for (const c of sending) {
+      const T = abThreshold(c.settings);
+      if (T === null || c.settings.abWinner) continue;
+      const inFlight = await this.dataSource.query(
+        `SELECT 1 FROM campaign_recipients WHERE campaign_id = ? AND status IN ('pending','queued') AND CONV(LEFT(id,2),16,10) < ? LIMIT 1`, [c.id, T]);
+      if (inFlight.length) continue; // test group still sending
+      const [{ last }] = await this.dataSource.query(
+        `SELECT MAX(sent_at) AS last FROM campaign_recipients WHERE campaign_id = ? AND CONV(LEFT(id,2),16,10) < ?`, [c.id, T]);
+      const waitMs = (c.settings.abAutoWinner?.waitHours || 4) * 3600_000;
+      if (last && Date.now() < new Date(last).getTime() + waitMs) continue;
+
+      const { a, b } = await abStats(this.dataSource, c.id, c.workspaceId, T);
+      const key = c.settings.abAutoWinner?.metric === 'clicks' ? 'clickRate' : 'openRate';
+      const winner: 'A' | 'B' = a.sent >= 5 && b.sent >= 5 && b[key] > a[key] ? 'B' : 'A'; // ties / tiny samples → A
+      const upd: any = await this.dataSource.query(
+        `UPDATE campaigns SET settings = JSON_SET(COALESCE(settings, '{}'), '$.abWinner', ?, '$.abDecidedAt', ?)
+          WHERE id = ? AND status = 'sending' AND JSON_EXTRACT(COALESCE(settings, '{}'), '$.abWinner') IS NULL`,
+        [winner, new Date().toISOString(), c.id]);
+      if (!upd.affectedRows) continue;
+      this.cache.delete(`c:${c.id}`);
+      this.logger.log(`Campaign ${c.id}: A/B winner is ${winner} (A ${a[key]}% vs B ${b[key]}%)`);
+      await new Promise((r) => setTimeout(r, 4000)); // let other workers' 3s campaign cache expire before the rest start
+
+      for (;;) {
+        const rows = await this.dataSource.query(
+          `SELECT id FROM campaign_recipients WHERE campaign_id = ? AND status = 'pending' AND CONV(LEFT(id,2),16,10) >= ? LIMIT 5000`, [c.id, T]);
+        if (!rows.length) break;
+        await this.queue.addBulk(QUEUES.EMAIL_SENDING, rows.map((r: any) => ({ name: 'send', data: { recipientId: r.id, campaignId: c.id, workspaceId: c.workspaceId } })));
+        await this.recipients.createQueryBuilder().update().set({ status: 'queued' }).whereInIds(rows.map((r: any) => r.id)).execute();
+      }
+      await this.maybeComplete(c.id);
+    }
   }
 
   /** Called by the worker when a send job has used up all retries — otherwise the recipient would stay

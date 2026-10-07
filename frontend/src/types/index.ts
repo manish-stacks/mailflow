@@ -69,6 +69,8 @@ export interface CampaignAudience {
 
 export interface CampaignSettings {
   trackOpens?: boolean; trackClicks?: boolean; includeUnsubscribeLink?: boolean; replyTo?: string; subjectB?: string;
+  abAutoWinner?: { enabled: boolean; testPercent: number; waitHours: number; metric: 'opens' | 'clicks' };
+  abWinner?: 'A' | 'B';
 }
 
 export interface Campaign {

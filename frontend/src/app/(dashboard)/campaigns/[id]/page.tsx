@@ -49,8 +49,8 @@ export default function CampaignDetailPage() {
   });
 
   const ab = useQuery({
-    queryKey: ['campaign-ab', id],
-    queryFn: () => api.get<{ enabled: boolean; winner?: 'A' | 'B' | null; note?: string; variants: { label: string; subject: string; sent: number; opened: number; clicked: number; openRate: number; clickRate: number }[] }>(`/campaigns/${id}/ab-results`),
+    queryKey: ['campaign-ab', id], refetchInterval: 60_000,
+    queryFn: () => api.get<{ enabled: boolean; auto?: boolean; winner?: 'A' | 'B' | null; note?: string; variants: { label: string; subject: string; sent: number; opened: number; clicked: number; openRate: number; clickRate: number }[] }>(`/campaigns/${id}/ab-results`),
   });
   const links = useQuery({ queryKey: ['campaign-links', id], queryFn: () => api.get<TrackedLink[]>(`/campaigns/${id}/links`) });
   const activity = useQuery({ queryKey: ['campaign-activity', id], queryFn: () => api.get<CampaignEvent[]>(`/campaigns/${id}/activity`, { limit: 100 }) });
@@ -147,7 +147,7 @@ export default function CampaignDetailPage() {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>A/B subject test</CardTitle>
-                <CardDescription>{ab.data.winner ? `Subject ${ab.data.winner} is winning on open rate.` : ab.data.note}</CardDescription>
+                <CardDescription>{ab.data.auto ? ab.data.note : ab.data.winner ? `Subject ${ab.data.winner} is winning on open rate.` : ab.data.note}</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2">
                 {ab.data.variants.map((v) => (

@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import {
-  IsArray, IsBoolean, IsDateString, IsEmail, IsIn, IsObject, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateNested,
+  IsArray, IsBoolean, IsDateString, IsEmail, IsIn, IsInt, IsObject, Max, Min, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateNested,
 } from 'class-validator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
@@ -11,6 +11,13 @@ export class AudienceDto {
   @IsOptional() @IsArray() @IsUUID('4', { each: true }) excludeListIds?: string[];
 }
 
+export class AbAutoWinnerDto {
+  @IsBoolean() enabled: boolean;
+  @IsInt() @Min(5) @Max(50) testPercent: number;
+  @IsInt() @Min(1) @Max(72) waitHours: number;
+  @IsIn(['opens', 'clicks']) metric: 'opens' | 'clicks';
+}
+
 export class CampaignSettingsDto {
   @IsOptional() @IsBoolean() trackOpens?: boolean;
   @IsOptional() @IsBoolean() trackClicks?: boolean;
@@ -18,6 +25,7 @@ export class CampaignSettingsDto {
   @IsOptional() @IsEmail() replyTo?: string;
   /** Optional second subject line — recipients are split 50/50 between subject and subjectB. */
   @IsOptional() @IsString() @MaxLength(255) subjectB?: string;
+  @IsOptional() @ValidateNested() @Type(() => AbAutoWinnerDto) abAutoWinner?: AbAutoWinnerDto;
 }
 
 export class CreateCampaignDto {
