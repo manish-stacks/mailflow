@@ -42,6 +42,7 @@ const mail_connection_module_1 = require("./modules/mail-connection/mail-connect
 const admin_module_1 = require("./modules/admin/admin.module");
 const payments_module_1 = require("./modules/payments/payments.module");
 const workspaces_module_1 = require("./modules/workspaces/workspaces.module");
+const automations_module_1 = require("./modules/automations/automations.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -68,6 +69,7 @@ exports.AppModule = AppModule = __decorate([
             domains_module_1.DomainsModule,
             templates_module_1.TemplatesModule,
             campaigns_module_1.CampaignsModule,
+            automations_module_1.AutomationsModule,
             ai_module_1.AiModule,
             analytics_module_1.AnalyticsModule,
             tracking_module_1.TrackingModule,

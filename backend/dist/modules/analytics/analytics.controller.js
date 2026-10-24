@@ -24,6 +24,7 @@ let AnalyticsController = class AnalyticsController {
         this.svc = svc;
     }
     overview(ws, days = '30') { return this.svc.overview(ws, +days || 30); }
+    best(ws) { return this.svc.bestSendTime(ws); }
     timeseries(ws, days = '30') { return this.svc.timeseries(ws, +days || 30); }
     recent(ws, limit = '5') { return this.svc.recentCampaigns(ws, +limit || 5); }
 };
@@ -36,6 +37,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], AnalyticsController.prototype, "overview", null);
+__decorate([
+    (0, common_1.Get)('best-send-time'),
+    __param(0, (0, decorators_1.WorkspaceId)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AnalyticsController.prototype, "best", null);
 __decorate([
     (0, common_1.Get)('timeseries'),
     __param(0, (0, decorators_1.WorkspaceId)()),

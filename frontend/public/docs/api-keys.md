@@ -28,7 +28,7 @@ curl https://<your-api-host>/api/campaigns \
 
 ```js
 const res = await fetch('https://<your-api-host>/api/campaigns', {
-  headers: { 'x-api-key': process.env.MAILFLOW_API_KEY },
+  headers: { 'x-api-key': process.env.HOVERMAIL_API_KEY },
 });
 ```
 

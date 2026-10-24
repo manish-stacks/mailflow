@@ -100,8 +100,8 @@ export default function DashboardPage() {
               <AreaChart data={series.data ?? []}>
                 <defs>
                   <linearGradient id="sent" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(243 75% 59%)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="hsl(243 75% 59%)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="hsl(356 90% 55%)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="hsl(356 90% 55%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 91%)" vertical={false} />
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                 <YAxis fontSize={11} tickLine={false} axisLine={false} width={36} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid hsl(220 13% 91%)', fontSize: 12 }} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                <Area type="monotone" dataKey="sent" stroke="hsl(243 75% 59%)" fill="url(#sent)" strokeWidth={2} />
+                <Area type="monotone" dataKey="sent" stroke="hsl(356 90% 55%)" fill="url(#sent)" strokeWidth={2} />
                 <Area type="monotone" dataKey="opened" stroke="hsl(152 60% 40%)" fill="transparent" strokeWidth={2} />
                 <Area type="monotone" dataKey="clicked" stroke="hsl(38 92% 50%)" fill="transparent" strokeWidth={2} />
               </AreaChart>

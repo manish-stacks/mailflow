@@ -24,6 +24,7 @@ __exportStar(require("./campaign.entity"), exports);
 __exportStar(require("./misc.entity"), exports);
 __exportStar(require("./billing.entity"), exports);
 __exportStar(require("./payment.entity"), exports);
+__exportStar(require("./automation.entity"), exports);
 const user_entity_1 = require("./user.entity");
 const workspace_entity_1 = require("./workspace.entity");
 const contact_entity_1 = require("./contact.entity");
@@ -32,6 +33,7 @@ const campaign_entity_1 = require("./campaign.entity");
 const misc_entity_1 = require("./misc.entity");
 const billing_entity_1 = require("./billing.entity");
 const payment_entity_1 = require("./payment.entity");
+const automation_entity_1 = require("./automation.entity");
 exports.ALL_ENTITIES = [
     user_entity_1.User, user_entity_1.RefreshToken, workspace_entity_1.Workspace, workspace_entity_1.WorkspaceMember,
     contact_entity_1.Contact, contact_entity_1.ContactList, contact_entity_1.ContactListMember, contact_entity_1.Segment,
@@ -39,4 +41,5 @@ exports.ALL_ENTITIES = [
     campaign_entity_1.EmailTemplate, campaign_entity_1.Campaign, campaign_entity_1.CampaignRecipient, campaign_entity_1.CampaignEvent, campaign_entity_1.TrackedLink,
     misc_entity_1.Unsubscribe, misc_entity_1.Suppression, misc_entity_1.UploadedFile, misc_entity_1.ImportJob, misc_entity_1.ApiKey, misc_entity_1.AuditLog, misc_entity_1.AiUsage,
     billing_entity_1.Plan, billing_entity_1.Subscription, billing_entity_1.UsagePeriod, billing_entity_1.EmailConnection, payment_entity_1.Payment,
+    automation_entity_1.Automation, automation_entity_1.AutomationStep, automation_entity_1.AutomationEnrollment,
 ];

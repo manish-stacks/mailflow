@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/primit
 const BLOCKS: Record<string, string> = {
   Heading: `<h1 style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:24px;color:#111">Your heading here</h1>`,
   Paragraph: `<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333">Write your message here. Hi {{first_name | default: "there"}}, ...</p>`,
-  Button: `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr><td style="border-radius:6px;background:#4f46e5"><a href="https://example.com" style="display:inline-block;padding:12px 24px;font-family:Arial,sans-serif;font-size:14px;color:#fff;text-decoration:none;border-radius:6px">Click here</a></td></tr></table>`,
+  Button: `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr><td style="border-radius:6px;background:#F32735"><a href="https://example.com" style="display:inline-block;padding:12px 24px;font-family:Arial,sans-serif;font-size:14px;color:#fff;text-decoration:none;border-radius:6px">Click here</a></td></tr></table>`,
   Divider: `<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />`,
 };
 

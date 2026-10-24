@@ -41,6 +41,10 @@ let CampaignsController = class CampaignsController {
     duplicate(ws, id, uid) {
         return this.svc.duplicate(ws, id, uid);
     }
+    saveAsTemplate(ws, id, uid, name) {
+        return this.svc.saveAsTemplate(ws, id, uid, name);
+    }
+    ab(ws, id) { return this.svc.abResults(ws, id); }
     audience(ws, id) { return this.svc.estimateAudience(ws, id); }
     validate(ws, id) { return this.svc.validate(ws, id); }
     test(ws, id, dto) {
@@ -118,6 +122,25 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], CampaignsController.prototype, "duplicate", null);
+__decorate([
+    (0, common_1.Post)(':id/save-as-template'),
+    (0, decorators_1.Roles)('editor'),
+    __param(0, (0, decorators_1.WorkspaceId)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, decorators_1.CurrentUser)('id')),
+    __param(3, (0, common_1.Body)('name')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", void 0)
+], CampaignsController.prototype, "saveAsTemplate", null);
+__decorate([
+    (0, common_1.Get)(':id/ab-results'),
+    __param(0, (0, decorators_1.WorkspaceId)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], CampaignsController.prototype, "ab", null);
 __decorate([
     (0, common_1.Get)(':id/audience'),
     __param(0, (0, decorators_1.WorkspaceId)()),

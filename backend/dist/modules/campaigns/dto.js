@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ScheduleCampaignDto = exports.TestCampaignDto = exports.QueryCampaignsDto = exports.UpdateCampaignDto = exports.CreateCampaignDto = exports.CampaignSettingsDto = exports.AudienceDto = void 0;
+exports.ScheduleCampaignDto = exports.TestCampaignDto = exports.QueryCampaignsDto = exports.UpdateCampaignDto = exports.CreateCampaignDto = exports.CampaignSettingsDto = exports.AbAutoWinnerDto = exports.AudienceDto = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
@@ -42,11 +42,41 @@ __decorate([
     (0, class_validator_1.IsUUID)('4', { each: true }),
     __metadata("design:type", Array)
 ], AudienceDto.prototype, "excludeListIds", void 0);
+class AbAutoWinnerDto {
+    enabled;
+    testPercent;
+    waitHours;
+    metric;
+}
+exports.AbAutoWinnerDto = AbAutoWinnerDto;
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], AbAutoWinnerDto.prototype, "enabled", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(5),
+    (0, class_validator_1.Max)(50),
+    __metadata("design:type", Number)
+], AbAutoWinnerDto.prototype, "testPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(72),
+    __metadata("design:type", Number)
+], AbAutoWinnerDto.prototype, "waitHours", void 0);
+__decorate([
+    (0, class_validator_1.IsIn)(['opens', 'clicks']),
+    __metadata("design:type", String)
+], AbAutoWinnerDto.prototype, "metric", void 0);
 class CampaignSettingsDto {
     trackOpens;
     trackClicks;
     includeUnsubscribeLink;
     replyTo;
+    /** Optional second subject line — recipients are split 50/50 between subject and subjectB. */
+    subjectB;
+    abAutoWinner;
 }
 exports.CampaignSettingsDto = CampaignSettingsDto;
 __decorate([
@@ -69,6 +99,18 @@ __decorate([
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], CampaignSettingsDto.prototype, "replyTo", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], CampaignSettingsDto.prototype, "subjectB", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => AbAutoWinnerDto),
+    __metadata("design:type", AbAutoWinnerDto)
+], CampaignSettingsDto.prototype, "abAutoWinner", void 0);
 class CreateCampaignDto {
     name;
     senderIdentityId;

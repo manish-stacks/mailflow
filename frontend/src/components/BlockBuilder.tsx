@@ -58,7 +58,7 @@ function blockHtml(b: Block): string {
       const img = `<img src="${attr(b.src)}" alt="${attr(b.alt)}" width="536" style="display:inline-block;max-width:100%;height:auto;border:0" />`;
       return `<div style="text-align:${al}">${b.url ? `<a href="${attr(b.url)}">${img}</a>` : img}</div>`;
     }
-    case 'button': return `<table role="presentation" cellpadding="0" cellspacing="0" align="${al}" style="margin:0 ${al === 'center' ? 'auto' : '0'}"><tr><td style="background:${b.bg || '#4f46e5'};border-radius:6px"><a href="${attr(b.url)}" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:${b.color || '#ffffff'};text-decoration:none">${esc(b.text)}</a></td></tr></table>`;
+    case 'button': return `<table role="presentation" cellpadding="0" cellspacing="0" align="${al}" style="margin:0 ${al === 'center' ? 'auto' : '0'}"><tr><td style="background:${b.bg || '#F32735'};border-radius:6px"><a href="${attr(b.url)}" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:${b.color || '#ffffff'};text-decoration:none">${esc(b.text)}</a></td></tr></table>`;
     case 'divider': return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:0" />`;
     case 'spacer': return `<div style="height:${b.size || 24}px;line-height:${b.size || 24}px;font-size:1px">&nbsp;</div>`;
     case 'footer': return `<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#9ca3af;text-align:center">${rich(b.text)}<br /><a href="{{unsubscribe_url}}" style="color:#9ca3af">Unsubscribe</a></p>`;
@@ -90,8 +90,8 @@ const START = (s: Settings): Block[] => [defaults('heading', s), defaults('text'
 export function BlockBuilder({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const parsed = useRef(parse(value)).current;
   const hasForeignHtml = !!value.trim() && !parsed;
-  const [settings, setSettings] = useState<Settings>(parsed?.s ?? { accent: '#4f46e5', pageBg: '#f4f5f7' });
-  const [blocks, setBlocks] = useState<Block[]>(parsed?.blocks ?? (hasForeignHtml ? [] : START({ accent: '#4f46e5', pageBg: '#f4f5f7' })));
+  const [settings, setSettings] = useState<Settings>(parsed?.s ?? { accent: '#F32735', pageBg: '#f4f5f7' });
+  const [blocks, setBlocks] = useState<Block[]>(parsed?.blocks ?? (hasForeignHtml ? [] : START({ accent: '#F32735', pageBg: '#f4f5f7' })));
   const [locked, setLocked] = useState(hasForeignHtml);
   const [sel, setSel] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);

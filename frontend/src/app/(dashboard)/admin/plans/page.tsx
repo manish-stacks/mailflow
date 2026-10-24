@@ -27,7 +27,7 @@ const FEATURE_FIELDS: { key: keyof Plan; label: string; hint: string }[] = [
   { key: 'allowApiAccess', label: 'API access', hint: 'Client can create API keys.' },
   { key: 'allowAi', label: 'AI assistant', hint: 'Access to the writing assistant.' },
   { key: 'allowSegments', label: 'Segments', hint: 'Rule-based dynamic audiences.' },
-  { key: 'removeBranding', label: 'No branding', hint: 'Hide MailFlow branding in emails.' },
+  { key: 'removeBranding', label: 'No branding', hint: 'Hide HoverMail branding in emails.' },
 ];
 
 const BLANK: Partial<Plan> = {

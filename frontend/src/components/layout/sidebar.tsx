@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/auth';
 import { Button } from '@/components/ui/button';
+import { BrandLogo } from '@/components/brand-logo';
 import { Dropdown, DropdownContent, DropdownItem, DropdownLabel, DropdownSeparator, DropdownTrigger } from '@/components/ui/primitives';
 
 const NAV = [
@@ -148,12 +149,7 @@ export function Sidebar() {
 
   const content = (
     <div className="flex h-full flex-col gap-4 p-4">
-      <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Mail className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="text-lg font-semibold tracking-tight">MailFlow</span>
-      </Link>
+      <BrandLogo className="px-2 py-1" />
 
       <WorkspaceSwitcher />
 

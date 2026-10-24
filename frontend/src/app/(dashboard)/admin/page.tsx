@@ -42,7 +42,7 @@ export default function AdminOverviewPage() {
               <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis fontSize={11} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
               <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-              <Bar dataKey="workspaces" name="Workspaces" fill="hsl(243 75% 59%)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="workspaces" name="Workspaces" fill="hsl(356 90% 55%)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

@@ -16,7 +16,7 @@ import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
 import { Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/primitives';
 import { EmptyState, PageLoader, Pagination, TableSkeleton, toast } from '@/components/ui/feedback';
 
-const PIE_COLORS = ['hsl(243 75% 59%)', 'hsl(152 60% 40%)', 'hsl(38 92% 50%)', 'hsl(0 72% 51%)'];
+const PIE_COLORS = ['hsl(356 90% 55%)', 'hsl(152 60% 40%)', 'hsl(38 92% 50%)', 'hsl(0 72% 51%)'];
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -173,7 +173,7 @@ export default function CampaignDetailPage() {
                   <XAxis type="number" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis type="category" dataKey="name" fontSize={11} width={70} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                  <Bar dataKey="value" fill="hsl(243 75% 59%)" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" fill="hsl(356 90% 55%)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

@@ -19,7 +19,7 @@ import { ConfirmDialog, EmptyState, TableSkeleton, toast } from '@/components/ui
 const STARTER_HTML = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#1f2937">
   <h1 style="font-size:24px;margin:0 0 16px">Hello {{first_name | default: "there"}}</h1>
   <p style="font-size:15px;line-height:1.6;margin:0 0 20px">Write your message here.</p>
-  <a href="https://example.com" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Call to action</a>
+  <a href="https://example.com" style="display:inline-block;background:#F32735;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Call to action</a>
 </div>`;
 
 export default function TemplatesPage() {

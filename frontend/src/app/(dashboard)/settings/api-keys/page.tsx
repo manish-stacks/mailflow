@@ -52,7 +52,7 @@ export default function ApiKeysPage() {
         <CardHeader className="flex-row items-center justify-between">
           <div>
             <CardTitle>API keys</CardTitle>
-            <CardDescription>Use these to call the MailFlow API from your own systems. Keys are shown once.</CardDescription>
+            <CardDescription>Use these to call the HoverMail API from your own systems. Keys are shown once.</CardDescription>
             <a
               href="/docs/api-keys.md" target="_blank" rel="noreferrer"
               className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"

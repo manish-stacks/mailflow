@@ -22,6 +22,7 @@ const storage_module_1 = require("../modules/storage/storage.module");
 const webhooks_module_1 = require("../modules/webhooks/webhooks.module");
 const csv_import_processor_1 = require("./csv-import.processor");
 const mail_connection_module_1 = require("../modules/mail-connection/mail-connection.module");
+const automations_module_1 = require("../modules/automations/automations.module");
 const billing_module_1 = require("../modules/billing/billing.module");
 let WorkerModule = class WorkerModule {
 };
@@ -31,7 +32,7 @@ exports.WorkerModule = WorkerModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true, load: [configuration_1.default] }),
             database_module_1.DatabaseModule, email_module_1.EmailModule, queue_module_1.QueueModule, storage_module_1.StorageModule,
-            campaigns_module_1.CampaignsModule, analytics_module_1.AnalyticsModule, webhooks_module_1.WebhooksModule, mail_connection_module_1.MailConnectionModule, billing_module_1.BillingModule
+            campaigns_module_1.CampaignsModule, analytics_module_1.AnalyticsModule, webhooks_module_1.WebhooksModule, mail_connection_module_1.MailConnectionModule, billing_module_1.BillingModule, automations_module_1.AutomationsModule
         ],
         providers: [csv_import_processor_1.CsvImportProcessor],
     })

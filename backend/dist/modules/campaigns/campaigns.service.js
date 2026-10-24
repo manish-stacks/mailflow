@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CampaignsService = void 0;
+const ab_util_1 = require("./ab.util");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
@@ -74,9 +75,32 @@ let CampaignsService = class CampaignsService {
             throw new common_1.NotFoundException('Campaign not found');
         return c;
     }
+    async loadTemplate(workspaceId, templateId) {
+        const t = await this.templates.findOne({ where: { id: templateId, workspaceId } });
+        if (!t)
+            throw new common_1.BadRequestException('Selected template not found (it may have been deleted)');
+        return t;
+    }
+    async assertSenderExists(workspaceId, senderId) {
+        const s = await this.senders.findOne({ where: { id: senderId, workspaceId } });
+        if (!s)
+            throw new common_1.BadRequestException('Selected sender identity not found');
+    }
     async create(workspaceId, userId, dto) {
         await this.billing.assertQuota(workspaceId, 'campaigns');
-        const saved = await this.campaigns.save(this.campaigns.create({ ...dto, workspaceId, createdBy: userId, status: 'draft' }));
+        const data = { ...dto };
+        // BUG FIX: a template chosen at creation time was stored as an id only, so the
+        // campaign came out empty. Copy its content, same as update() does.
+        if (dto.templateId) {
+            const t = await this.loadTemplate(workspaceId, dto.templateId);
+            data.htmlContent = dto.htmlContent || t.htmlContent;
+            data.subject = dto.subject || t.subject;
+            data.previewText = dto.previewText || t.previewText;
+            data.designJson = dto.designJson ?? t.designJson;
+        }
+        if (dto.senderIdentityId)
+            await this.assertSenderExists(workspaceId, dto.senderIdentityId);
+        const saved = await this.campaigns.save(this.campaigns.create({ ...data, workspaceId, createdBy: userId, status: 'draft' }));
         await this.billing.increment(workspaceId, 'campaignsCreated', 1);
         return saved;
     }
@@ -86,14 +110,17 @@ let CampaignsService = class CampaignsService {
             throw new common_1.BadRequestException(`A ${c.status} campaign cannot be edited`);
         // Pulling in a template copies its content so later template edits never mutate a sent campaign.
         if (dto.templateId && dto.templateId !== c.templateId) {
-            const t = await this.templates.findOne({ where: { id: dto.templateId, workspaceId } });
-            if (!t)
-                throw new common_1.BadRequestException('Template not found');
+            const t = await this.loadTemplate(workspaceId, dto.templateId);
             dto.htmlContent = dto.htmlContent ?? t.htmlContent;
             dto.subject = dto.subject ?? t.subject;
             dto.previewText = dto.previewText ?? t.previewText;
             dto.designJson = dto.designJson ?? t.designJson;
         }
+        if (dto.senderIdentityId && dto.senderIdentityId !== c.senderIdentityId)
+            await this.assertSenderExists(workspaceId, dto.senderIdentityId);
+        // The winner is decided by the server — an edit must never wipe or forge it.
+        if (dto.settings && c.settings?.abWinner)
+            dto.settings = { ...dto.settings, abWinner: c.settings.abWinner, abDecidedAt: c.settings.abDecidedAt };
         await this.campaigns.update(id, dto);
         return this.findOne(workspaceId, id);
     }
@@ -142,8 +169,6 @@ let CampaignsService = class CampaignsService {
         if (audience.excludeListIds?.length) {
             qb.andWhere(`NOT EXISTS (SELECT 1 FROM contact_list_members m2 WHERE m2.contact_id = c.id AND m2.list_id IN (:...ex))`, { ex: audience.excludeListIds });
         }
-        if (countOnly)
-            return { count: await qb.getCount(), query: qb };
         return { count: await qb.getCount(), query: qb };
     }
     async estimateAudience(workspaceId, id) {
@@ -173,7 +198,74 @@ let CampaignsService = class CampaignsService {
         const { count } = await this.resolveAudience(workspaceId, c, true);
         if (!count)
             issues.push('The selected audience contains no sendable contacts');
-        return { valid: issues.length === 0, issues, estimatedRecipients: count };
+        const warnings = this.lint(c);
+        if ((0, ab_util_1.abThreshold)(c.settings) !== null && count < 200)
+            warnings.push('Auto-winner works best with 200+ recipients — with a small audience the test group is too small to be meaningful');
+        return { valid: issues.length === 0, issues, warnings, estimatedRecipients: count };
+    }
+    /** Non-blocking deliverability / quality hints shown on the review step. */
+    lint(c) {
+        const w = [];
+        const subject = c.subject || '';
+        const html = c.htmlContent || '';
+        if (subject.length > 60)
+            w.push(`Subject is ${subject.length} characters — most inboxes cut it off after ~60`);
+        if (/[A-Z]{6,}/.test(subject.replace(/\{\{[^}]*\}\}/g, '')))
+            w.push('Subject has ALL-CAPS words — a common spam trigger');
+        if ((subject.match(/!/g) || []).length > 1)
+            w.push('Avoid multiple exclamation marks in the subject');
+        if (/\b(free money|act now|100% free|winner|guaranteed|click here|no risk)\b/i.test(subject + ' ' + html.replace(/<[^>]+>/g, ' '))) {
+            w.push('Content contains spam-trigger phrases (e.g. "act now", "100% free")');
+        }
+        if (!/<a\s[^>]*href/i.test(html))
+            w.push('No links found — add a call-to-action');
+        if (/<img(?![^>]*\balt=)[^>]*>/i.test(html))
+            w.push('Some images have no alt text');
+        if ((c.settings?.subjectB || '').length > 60)
+            w.push('Subject B is longer than 60 characters');
+        if (!c.previewText)
+            w.push('Preview text is empty — inboxes will show random body text instead');
+        if (c.settings?.includeUnsubscribeLink === false && !html.includes('{{unsubscribe_url}}')) {
+            w.push('No unsubscribe link — risks spam complaints and legal trouble');
+        }
+        const tags = html.match(/\{\{[^}]*\}\}/g) || [];
+        if (tags.some((t) => !/^\{\{\s*[a-zA-Z0-9_.]+\s*(\|\s*default:\s*["'][^"']*["']\s*)?\}\}$/.test(t))) {
+            w.push('A merge tag looks malformed — use {{first_name}} or {{first_name | default: "there"}}');
+        }
+        return w;
+    }
+    /** A/B subject results: variant A = even last hex digit of recipient id, B = odd. */
+    async abResults(workspaceId, id) {
+        const c = await this.findOne(workspaceId, id);
+        if (!c.settings?.subjectB)
+            return { enabled: false, variants: [] };
+        const T = (0, ab_util_1.abThreshold)(c.settings);
+        const { a, b } = await (0, ab_util_1.abStats)(this.dataSource, id, workspaceId, T);
+        const va = { label: 'A', subject: c.subject || c.name, ...a };
+        const vb = { label: 'B', subject: c.settings.subjectB, ...b };
+        if (T !== null) {
+            const cfg = c.settings.abAutoWinner;
+            const decided = c.settings.abWinner;
+            const m = cfg.metric === 'clicks' ? 'click' : 'open';
+            return {
+                enabled: true, auto: true, variants: [va, vb], winner: decided ?? null,
+                note: decided
+                    ? `Auto-winner: Subject ${decided} was picked by ${m} rate and sent to the rest of your audience.`
+                    : `Test phase: ${cfg.testPercent}% of your audience is receiving A/B. The winner (by ${m} rate) is picked automatically ${cfg.waitHours}h after the test finishes and sent to everyone else.`,
+            };
+        }
+        const winner = va.sent < 20 || vb.sent < 20 ? null : va.openRate === vb.openRate ? null : va.openRate > vb.openRate ? 'A' : 'B';
+        return { enabled: true, variants: [va, vb], winner, note: winner ? undefined : 'Not enough data yet for a clear winner (needs 20+ sends per variant).' };
+    }
+    /** Save the campaign's current content as a reusable template. */
+    async saveAsTemplate(workspaceId, id, userId, name) {
+        const c = await this.findOne(workspaceId, id);
+        if (!c.htmlContent)
+            throw new common_1.BadRequestException('Add email content first');
+        return this.templates.save(this.templates.create({
+            workspaceId, createdBy: userId, name: name || c.name, category: 'general',
+            subject: c.subject, previewText: c.previewText, htmlContent: c.htmlContent, designJson: c.designJson,
+        }));
     }
     async send(workspaceId, id) {
         const campaign = await this.findOne(workspaceId, id);
@@ -215,7 +307,11 @@ let CampaignsService = class CampaignsService {
         const c = await this.findOne(workspaceId, id);
         if (c.status !== 'paused')
             throw new common_1.BadRequestException('Only a paused campaign can be resumed');
-        const pending = await this.recipients.find({ where: { campaignId: id, status: (0, typeorm_2.In)(['pending', 'queued']) }, take: 50000 });
+        let pending = await this.recipients.find({ where: { campaignId: id, status: (0, typeorm_2.In)(['pending', 'queued']) }, take: 50000 });
+        // Auto-winner A/B still in its test phase: never release the held-back audience early.
+        const abT = (0, ab_util_1.abThreshold)(c.settings);
+        if (abT !== null && !c.settings?.abWinner)
+            pending = pending.filter((r) => (0, ab_util_1.inTestGroup)(r.id, abT));
         await this.campaigns.update(id, { status: 'sending' });
         if (pending.length) {
             await this.queue.addBulk(queue_constants_1.QUEUES.EMAIL_SENDING, pending.map((r) => ({
@@ -240,7 +336,7 @@ let CampaignsService = class CampaignsService {
             : null;
         const sample = {
             id: 'test', email: recipients[0], firstName: 'FirstName', lastName: 'LastName',
-            customAttributes: { company: 'Workspace ', city: 'Delhi' },
+            customAttributes: { company: 'Acme', city: 'Delhi' },
         };
         const html = (0, renderer_1.renderMergeTags)(c.htmlContent, sample);
         const subject = `[TEST] ${(0, renderer_1.renderMergeTags)(c.subject || c.name, sample)}`;

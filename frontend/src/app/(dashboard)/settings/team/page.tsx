@@ -262,7 +262,7 @@ export default function TeamPage() {
           <p className="text-sm text-muted-foreground">
             {credentials?.temporaryPassword
               ? 'This password is shown once. Copy it now if you are handing it over yourself.'
-              : 'This person already had a MailFlow account, so their existing password still applies.'}
+              : 'This person already had a HoverMail account, so their existing password still applies.'}
           </p>
           <div className="mt-3 space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
             <div className="flex justify-between gap-4"><span className="text-muted-foreground">Email</span><span className="font-medium">{credentials?.email}</span></div>

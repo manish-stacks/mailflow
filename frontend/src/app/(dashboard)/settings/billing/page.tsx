@@ -34,7 +34,7 @@ const FEATURES: { key: keyof Plan; label: string }[] = [
   { key: 'allowApiAccess', label: 'API access' },
   { key: 'allowAi', label: 'AI writing assistant' },
   { key: 'allowSegments', label: 'Dynamic segments' },
-  { key: 'removeBranding', label: 'No MailFlow branding' },
+  { key: 'removeBranding', label: 'No HoverMail branding' },
 ];
 
 export default function BillingPage() {

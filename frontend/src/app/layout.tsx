@@ -6,7 +6,7 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'MailFlow — Email Marketing Platform',
+  title: 'HoverMail — Email Marketing Platform',
   description: 'Build, send and measure email campaigns at scale.',
 };
 

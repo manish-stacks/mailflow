@@ -96,6 +96,11 @@ let TemplatesController = class TemplatesController {
         this.svc = svc;
     }
     findAll(ws, q) { return this.svc.findAll(ws, q); }
+    starters() { return this.svc.starters(); }
+    fromStarter(ws, uid, key) {
+        return this.svc.fromStarter(ws, uid, key);
+    }
+    categories(ws) { return this.svc.categories(ws); }
     findOne(ws, id) { return this.svc.findOne(ws, id); }
     create(ws, uid, dto) {
         return this.svc.create(ws, uid, dto);
@@ -120,6 +125,29 @@ __decorate([
     __metadata("design:paramtypes", [String, QueryTemplatesDto]),
     __metadata("design:returntype", void 0)
 ], TemplatesController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('starters'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], TemplatesController.prototype, "starters", null);
+__decorate([
+    (0, common_1.Post)('from-starter/:key'),
+    (0, decorators_1.Roles)('editor'),
+    __param(0, (0, decorators_1.WorkspaceId)()),
+    __param(1, (0, decorators_1.CurrentUser)('id')),
+    __param(2, (0, common_1.Param)('key')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], TemplatesController.prototype, "fromStarter", null);
+__decorate([
+    (0, common_1.Get)('categories'),
+    __param(0, (0, decorators_1.WorkspaceId)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TemplatesController.prototype, "categories", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, decorators_1.WorkspaceId)()),

@@ -10,6 +10,7 @@ const campaign_dispatch_service_1 = require("../modules/campaigns/campaign-dispa
 const webhooks_service_1 = require("../modules/webhooks/webhooks.service");
 const queue_constants_1 = require("../queues/queue.constants");
 const queue_service_1 = require("../queues/queue.service");
+const automations_service_1 = require("../modules/automations/automations.service");
 const csv_import_processor_1 = require("./csv-import.processor");
 const worker_module_1 = require("./worker.module");
 /**
@@ -26,6 +27,13 @@ async function bootstrap() {
     const analytics = app.get(analytics_service_1.AnalyticsService);
     const config = app.get(config_1.ConfigService);
     const connection = queues.connection;
+    // Drip automations: enroll new contacts and send due steps once a minute.
+    const automations = app.get(automations_service_1.AutomationsService);
+    const automationTimer = setInterval(() => {
+        automations.tick().catch((e) => logger.error(`automations tick: ${e.message}`));
+        app.get(campaign_dispatch_service_1.CampaignDispatchService).resolveAbWinners().catch((e) => logger.error(`ab winners: ${e.message}`));
+    }, 60_000);
+    automations.tick().catch(() => null);
     const workers = [
         new bullmq_1.Worker(queue_constants_1.QUEUES.CAMPAIGN_PREPARATION, async (job) => {
             await dispatch.prepare(job.data.campaignId, job.data.workspaceId);
@@ -54,12 +62,20 @@ async function bootstrap() {
         }, { connection, concurrency: 5 }),
     ];
     workers.forEach((w) => {
-        w.on('failed', (job, err) => logger.warn(`[${w.name}] job ${job?.id} failed: ${err.message}`));
+        w.on('failed', (job, err) => {
+            logger.warn(`[${w.name}] job ${job?.id} failed: ${err.message}`);
+            const exhausted = job && job.attemptsMade >= (job.opts.attempts ?? 1);
+            if (w.name === queue_constants_1.QUEUES.EMAIL_SENDING && exhausted) {
+                dispatch.finalizeFailure(job.data.recipientId, job.data.campaignId, job.data.workspaceId, err.message)
+                    .catch((e) => logger.error(`finalizeFailure: ${e.message}`));
+            }
+        });
         w.on('completed', (job) => logger.debug(`[${w.name}] job ${job.id} done`));
     });
     logger.log(`Workers online: ${workers.map((w) => w.name).join(', ')}`);
     const shutdown = async () => {
         logger.log('Shutting down workers...');
+        clearInterval(automationTimer);
         await Promise.all(workers.map((w) => w.close()));
         await app.close();
         process.exit(0);

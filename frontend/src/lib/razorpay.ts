@@ -56,10 +56,10 @@ export async function payWithRazorpay(session: CheckoutSession): Promise<PayResu
       order_id: session.orderId,
       amount: session.amount,
       currency: session.currency,
-      name: 'MailFlow',
+      name: 'HoverMail',
       description: `${session.plan.name} — ${session.billingCycle}`,
       prefill: { name: session.prefill?.name, email: session.prefill?.email },
-      theme: { color: '#4f46e5' },
+      theme: { color: '#F32735' },
       handler: async (response: any) => {
         try {
           await api.post('/payments/verify', {

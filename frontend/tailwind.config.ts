@@ -19,6 +19,7 @@ const config: Config = {
         destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
         success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        hm: { red: '#F32735', 'red-dark': '#D61F2C', ink: '#171717', bg: '#F8F9FB', gray: '#6B7280', line: '#E5E7EB' },
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
       fontFamily: { sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui'] },

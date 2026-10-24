@@ -28,19 +28,31 @@ let TrackingService = TrackingService_1 = class TrackingService {
     links;
     contacts;
     config;
+    db;
     logger = new common_1.Logger(TrackingService_1.name);
-    constructor(recipients, campaigns, events, links, contacts, config) {
+    constructor(recipients, campaigns, events, links, contacts, config, db) {
         this.recipients = recipients;
         this.campaigns = campaigns;
         this.events = events;
         this.links = links;
         this.contacts = contacts;
         this.config = config;
+        this.db = db;
+    }
+    /** Automation tokens carry `a` (automation id). The destination URL is inside the signed token, so it cannot be tampered with. */
+    async automationEvent(p, type) {
+        const [enr] = await this.db.query(`SELECT workspace_id, contact_id FROM automation_enrollments WHERE id = ? AND automation_id = ?`, [p.e, p.a]);
+        if (!enr)
+            return;
+        await this.db.query(`INSERT INTO automation_events (id, workspace_id, automation_id, enrollment_id, contact_id, step_position, event_type, url) VALUES (UUID(),?,?,?,?,?,?,?)`, [enr.workspace_id, p.a, p.e, enr.contact_id, Number(p.p) || 0, type, type === 'clicked' ? (p.u || '').slice(0, 2048) : null]);
+        await this.db.query(`UPDATE contacts SET last_engaged_at = NOW() WHERE id = ?`, [enr.contact_id]);
     }
     async open(token, meta) {
         const payload = (0, tokens_1.verifyToken)(token, this.config.get('trackingSecret'));
         if (!payload)
             return;
+        if (payload.a)
+            return this.automationEvent(payload, 'opened');
         const recipient = await this.recipients.findOne({ where: { id: payload.r, campaignId: payload.c } });
         if (!recipient)
             return;
@@ -67,6 +79,12 @@ let TrackingService = TrackingService_1 = class TrackingService {
         const payload = (0, tokens_1.verifyToken)(token, this.config.get('trackingSecret'));
         if (!payload)
             return null;
+        if (payload.a) {
+            if (!payload.u || !/^https?:\/\//i.test(payload.u))
+                return null;
+            await this.automationEvent(payload, 'clicked').catch(() => null);
+            return payload.u;
+        }
         const link = await this.links.findOne({ where: { id: payload.l, campaignId: payload.c } });
         if (!link)
             return null; // no open-redirect: unknown links go nowhere
@@ -108,5 +126,6 @@ exports.TrackingService = TrackingService = TrackingService_1 = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        typeorm_2.DataSource])
 ], TrackingService);

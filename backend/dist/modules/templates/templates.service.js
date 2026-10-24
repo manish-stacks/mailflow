@@ -20,6 +20,7 @@ const typeorm_2 = require("typeorm");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
 const entities_1 = require("../../database/entities");
 const email_service_1 = require("../../integrations/email/email.service");
+const starter_templates_1 = require("./starter-templates");
 const renderer_1 = require("../../integrations/email/renderer");
 let TemplatesService = class TemplatesService {
     templates;
@@ -43,6 +44,21 @@ let TemplatesService = class TemplatesService {
         qb.orderBy('t.updated_at', 'DESC').skip((q.page - 1) * q.limit).take(q.limit);
         const [data, total] = await qb.getManyAndCount();
         return (0, pagination_dto_1.paginate)(data, total, q.page, q.limit);
+    }
+    starters() { return starter_templates_1.STARTER_TEMPLATES; }
+    fromStarter(workspaceId, userId, key) {
+        const s = starter_templates_1.STARTER_TEMPLATES.find((x) => x.key === key);
+        if (!s)
+            throw new common_1.NotFoundException('Starter template not found');
+        return this.templates.save(this.templates.create({
+            workspaceId, createdBy: userId, name: s.name, category: s.category,
+            subject: s.subject, previewText: s.previewText, htmlContent: s.html,
+        }));
+    }
+    async categories(workspaceId) {
+        const rows = await this.templates.createQueryBuilder('t').select('t.category', 'category').addSelect('COUNT(*)', 'count')
+            .where('t.workspace_id = :workspaceId', { workspaceId }).groupBy('t.category').getRawMany();
+        return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
     }
     async findOne(workspaceId, id) {
         const t = await this.templates.findOne({ where: { id, workspaceId } });
