@@ -1,6 +1,6 @@
 'use client';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://apihovermail.hovermessage.com/api';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public errors?: string[]) {
