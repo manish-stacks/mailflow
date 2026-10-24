@@ -43,6 +43,7 @@ const admin_module_1 = require("./modules/admin/admin.module");
 const payments_module_1 = require("./modules/payments/payments.module");
 const workspaces_module_1 = require("./modules/workspaces/workspaces.module");
 const automations_module_1 = require("./modules/automations/automations.module");
+const demo_module_1 = require("./modules/demo/demo.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -77,6 +78,7 @@ exports.AppModule = AppModule = __decorate([
             unsubscribe_module_1.UnsubscribeModule,
             suppression_module_1.SuppressionModule,
             apikeys_module_1.ApiKeysModule,
+            demo_module_1.DemoModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },

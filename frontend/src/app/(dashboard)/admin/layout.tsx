@@ -15,6 +15,7 @@ const TABS = [
   { href: '/admin/workspaces', label: 'Clients' },
   { href: '/admin/plans', label: 'Packages' },
   { href: '/admin/payments', label: 'Payments' },
+  { href: '/admin/demo-requests', label: 'Demo requests' },
   { href: '/admin/admins', label: 'Admins' },
 ];
 

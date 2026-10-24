@@ -52,6 +52,7 @@ const ADMIN_NAV = {
     { label: 'Overview', href: '/admin' },
     { label: 'Clients', href: '/admin/workspaces' },
     { label: 'Packages', href: '/admin/plans' },
+    { label: 'Demo requests', href: '/admin/demo-requests' },
   ],
 };
 

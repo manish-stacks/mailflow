@@ -31,6 +31,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { AutomationsModule } from './modules/automations/automations.module';
+import { DemoModule } from './modules/demo/demo.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AutomationsModule } from './modules/automations/automations.module';
     UnsubscribeModule,
     SuppressionModule,
     ApiKeysModule,
+    DemoModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

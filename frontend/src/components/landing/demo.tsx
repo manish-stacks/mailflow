@@ -23,6 +23,7 @@ import {
   Zap,
 } from "lucide-react";
 import { DEMO } from "@/config/landing";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { cta } from "./ui";
 
@@ -45,6 +46,8 @@ const schema = z.object({
   consent: z.literal(true, {
     errorMap: () => ({ message: "Please confirm so we can contact you" }),
   }),
+  /** Honeypot — hidden from people, bots fill it. */
+  website: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -335,6 +338,7 @@ export function DemoForm({
       teamSize: "",
       interests: [],
       message: "",
+      website: "",
       consent: undefined as any,
     },
   });
@@ -349,8 +353,19 @@ export function DemoForm({
       source: "hovermail-landing",
       requestedAt: new Date().toISOString(),
     };
+
+    const mailFallback = () => {
+      if (!DEMO.email) return false;
+      const body = `Name: ${v.name}\nEmail: ${v.email}\nCompany: ${v.company || "-"}\nTeam size: ${v.teamSize || "-"}\nInterested in: ${(v.interests ?? []).join(", ") || "-"}\n\n${v.message || ""}`;
+      window.location.href = `mailto:${DEMO.email}?subject=${encodeURIComponent("HoverMail demo request")}&body=${encodeURIComponent(body)}`;
+      setDone("mail");
+      onDone?.();
+      return true;
+    };
+
     try {
       if (DEMO.endpoint) {
+        // Optional external override (Formspree, Zapier, ...).
         const res = await fetch(DEMO.endpoint, {
           method: "POST",
           headers: {
@@ -361,19 +376,18 @@ export function DemoForm({
         });
         if (!res.ok)
           throw new Error("The request could not be sent. Please try again.");
-        setDone("sent");
-        onDone?.();
-      } else if (DEMO.email) {
-        const body = `Name: ${v.name}\nEmail: ${v.email}\nCompany: ${v.company || "-"}\nTeam size: ${v.teamSize || "-"}\nInterested in: ${(v.interests ?? []).join(", ") || "-"}\n\n${v.message || ""}`;
-        window.location.href = `mailto:${DEMO.email}?subject=${encodeURIComponent("HoverMail demo request")}&body=${encodeURIComponent(body)}`;
-        setDone("mail");
-        onDone?.();
       } else {
-        throw new Error(
-          "Demo requests are not connected yet. Set NEXT_PUBLIC_DEMO_ENDPOINT or NEXT_PUBLIC_DEMO_EMAIL.",
-        );
+        // Default: our own API -> demo_requests table.
+        await apiFetch("/demo-requests", {
+          method: "POST",
+          body: payload,
+          skipWorkspace: true,
+        });
       }
+      setDone("sent");
+      onDone?.();
     } catch (e: any) {
+      if (mailFallback()) return;
       setError(e.message || "Something went wrong.");
     }
   };
@@ -412,6 +426,14 @@ export function DemoForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <input
+        type="text"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
+        {...register("website")}
+      />
       <div className={cn("grid gap-4", !compact && "sm:grid-cols-2")}>
         <div>
           <label htmlFor="d-name" className={label}>

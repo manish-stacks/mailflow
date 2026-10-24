@@ -8,6 +8,7 @@ export * from './misc.entity';
 export * from './billing.entity';
 export * from './payment.entity';
 export * from './automation.entity';
+export * from './demo-request.entity';
 
 import { User, RefreshToken } from './user.entity';
 import { Workspace, WorkspaceMember } from './workspace.entity';
@@ -18,6 +19,7 @@ import { Unsubscribe, Suppression, UploadedFile, ImportJob, ApiKey, AuditLog, Ai
 import { Plan, Subscription, UsagePeriod, EmailConnection } from './billing.entity';
 import { Payment } from './payment.entity';
 import { Automation, AutomationStep, AutomationEnrollment } from './automation.entity';
+import { DemoRequest } from './demo-request.entity';
 
 export const ALL_ENTITIES = [
   User, RefreshToken, Workspace, WorkspaceMember,
@@ -27,4 +29,5 @@ export const ALL_ENTITIES = [
   Unsubscribe, Suppression, UploadedFile, ImportJob, ApiKey, AuditLog, AiUsage,
   Plan, Subscription, UsagePeriod, EmailConnection, Payment,
   Automation, AutomationStep, AutomationEnrollment,
+  DemoRequest,
 ];
